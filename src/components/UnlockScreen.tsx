@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { api } from "../api";
+import { getLastVault } from "../prefs";
 import { useStore } from "../store";
 import { StrengthMeter } from "./StrengthMeter";
 
@@ -8,9 +10,20 @@ export function UnlockScreen({ startupFile }: { startupFile: string | null }) {
   const [confirm, setConfirm] = useState("");
   const openVault = useStore((s) => s.openVault);
   const createVault = useStore((s) => s.createVault);
+  const quickUnlock = useStore((s) => s.quickUnlock);
   const busy = useStore((s) => s.busy);
   const error = useStore((s) => s.error);
   const clearError = useStore((s) => s.clearError);
+  const [quickAvailable, setQuickAvailable] = useState(false);
+
+  useEffect(() => {
+    const p = getLastVault();
+    if (!p) return;
+    api
+      .hasQuickUnlock(p)
+      .then(setQuickAvailable)
+      .catch(() => {});
+  }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -99,6 +112,16 @@ export function UnlockScreen({ startupFile }: { startupFile: string | null }) {
                 : "Destrancar"}
           </button>
         </form>
+
+        {quickAvailable && tab === "open" && (
+          <button
+            className="big quick-btn"
+            disabled={busy}
+            onClick={() => quickUnlock()}
+          >
+            🔓 Desbloqueio rápido (sem senha)
+          </button>
+        )}
       </div>
     </div>
   );

@@ -103,6 +103,15 @@ export const api = {
     invoke<void>("write_file_b64", { path, dataB64 }),
   /** Copia um segredo protegendo do histórico do Windows (só no Windows). */
   copySecretNative: (text: string) => invoke<void>("copy_secret", { text }),
+  /** Auto-type: digita o texto no campo que estiver com foco. */
+  typeText: (text: string) => invoke<void>("type_text", { text }),
+  /** Import do export CIFRADO do Bitwarden → devolve o JSON claro (experimental). */
+  importBitwardenEncrypted: (path: string, password: string) =>
+    invoke<string>("import_bitwarden_encrypted", { path, password }),
+  enableQuickUnlock: (path: string) => invoke<void>("enable_quick_unlock", { path }),
+  disableQuickUnlock: (path: string) => invoke<void>("disable_quick_unlock", { path }),
+  hasQuickUnlock: (path: string) => invoke<boolean>("has_quick_unlock", { path }),
+  quickUnlock: (path: string) => invoke<{ vault: string }>("quick_unlock", { path }),
   startupFile: () => invoke<string | null>("get_startup_file"),
 
   /** Abre o gerenciador de arquivos destacando este arquivo (ex.: o CSV a apagar). */

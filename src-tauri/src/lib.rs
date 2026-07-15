@@ -5,12 +5,15 @@
 //! da memória ao trancar. O front-end nunca guarda a senha nem a chave — recebe
 //! o conteúdo do vault (para renderizar) e manda de volta o JSON para salvar.
 
+mod bwdecrypt;
 #[cfg(windows)]
 mod clipboard;
 mod crypto;
 mod generator;
 mod kdbx;
 mod totp;
+
+const KEYRING_SERVICE: &str = "LocalKeys";
 
 use std::path::Path;
 use std::sync::Mutex;
@@ -142,7 +145,85 @@ fn change_master_password(
     let file = std::fs::read(&path).map_err(|e| format!("falha ao ler '{path}': {e}"))?;
     let renewed = crypto::change_password(&old_password, &new_password, &file)
         .map_err(|e| e.to_string())?;
-    atomic_write(&path, &renewed)
+    atomic_write(&path, &renewed)?;
+    // A chave guardada no keyring foi derivada do salt antigo — invalida.
+    if let Ok(entry) = keyring::Entry::new(KEYRING_SERVICE, &path) {
+        let _ = entry.delete_credential();
+    }
+    Ok(())
+}
+
+// --- Auto-type (digita direto no campo, sem passar pelo clipboard) ---
+
+#[tauri::command(async)]
+fn type_text(text: String) -> Result<(), String> {
+    use enigo::{Enigo, Keyboard, Settings};
+    let mut enigo =
+        Enigo::new(&Settings::default()).map_err(|e| format!("auto-type indisponível: {e}"))?;
+    enigo.text(&text).map_err(|e| format!("falha ao digitar: {e}"))?;
+    Ok(())
+}
+
+// --- Import do export CIFRADO do Bitwarden (experimental) ---
+
+#[tauri::command(async)]
+fn import_bitwarden_encrypted(path: String, password: String) -> Result<String, String> {
+    let password = Zeroizing::new(password);
+    let json = std::fs::read_to_string(&path).map_err(|e| format!("falha ao ler '{path}': {e}"))?;
+    bwdecrypt::decrypt_export(&json, &password)
+}
+
+// --- Desbloqueio rápido via keyring do SO (opt-in) ---
+
+/// Guarda a chave da sessão atual no cofre do SO, para abrir sem a master depois.
+/// Exige o vault destrancado.
+#[tauri::command(async)]
+fn enable_quick_unlock(path: String, state: State<'_, AppState>) -> Result<(), String> {
+    let guard = state.session.lock().unwrap();
+    let session = guard.as_ref().ok_or("destranque o vault primeiro")?;
+    let b64 = base64::engine::general_purpose::STANDARD.encode(session.key_bytes());
+    keyring::Entry::new(KEYRING_SERVICE, &path)
+        .map_err(|e| format!("keyring: {e}"))?
+        .set_password(&b64)
+        .map_err(|e| format!("keyring: {e}"))
+}
+
+#[tauri::command(async)]
+fn disable_quick_unlock(path: String) -> Result<(), String> {
+    let entry = keyring::Entry::new(KEYRING_SERVICE, &path).map_err(|e| format!("keyring: {e}"))?;
+    match entry.delete_credential() {
+        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+        Err(e) => Err(format!("keyring: {e}")),
+    }
+}
+
+#[tauri::command(async)]
+fn has_quick_unlock(path: String) -> bool {
+    keyring::Entry::new(KEYRING_SERVICE, &path)
+        .and_then(|e| e.get_password())
+        .is_ok()
+}
+
+/// Abre o vault usando a chave guardada no keyring (sem pedir a master).
+#[tauri::command(async)]
+fn quick_unlock(path: String, state: State<'_, AppState>) -> Result<OpenResult, String> {
+    let b64 = keyring::Entry::new(KEYRING_SERVICE, &path)
+        .map_err(|e| format!("keyring: {e}"))?
+        .get_password()
+        .map_err(|_| "sem desbloqueio rápido para este cofre".to_string())?;
+    let raw = base64::engine::general_purpose::STANDARD
+        .decode(b64)
+        .map_err(|_| "chave inválida no keyring".to_string())?;
+    let key: [u8; 32] = raw
+        .as_slice()
+        .try_into()
+        .map_err(|_| "tamanho de chave inválido".to_string())?;
+    let file = std::fs::read(&path).map_err(|e| format!("falha ao ler '{path}': {e}"))?;
+    let (plaintext, session) = crypto::open_with_key(&key, &file).map_err(|e| e.to_string())?;
+    let vault =
+        String::from_utf8(plaintext.to_vec()).map_err(|_| "vault não é UTF-8 válido".to_string())?;
+    *state.session.lock().unwrap() = Some(session);
+    Ok(OpenResult { vault })
 }
 
 #[tauri::command(async)]
@@ -278,6 +359,12 @@ pub fn run() {
             read_file_b64,
             write_file_b64,
             copy_secret,
+            type_text,
+            import_bitwarden_encrypted,
+            enable_quick_unlock,
+            disable_quick_unlock,
+            has_quick_unlock,
+            quick_unlock,
             get_startup_file,
         ])
         .run(tauri::generate_context!())

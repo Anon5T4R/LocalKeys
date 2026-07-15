@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { api } from "../api";
 import { useStore } from "../store";
-import { detectFormat, kdbxToItems, parseText } from "../import";
+import { detectFormat, kdbxToItems, parseBitwardenJson, parseText } from "../import";
 import { exportCsv, exportJson } from "../export";
 
-type Phase = "menu" | "kdbx" | "export" | "busy" | "done";
+type Phase = "menu" | "kdbx" | "bw" | "export" | "busy" | "done";
 
 export function ImportExport({ onClose }: { onClose: () => void }) {
   const vault = useStore((s) => s.vault);
@@ -14,6 +14,8 @@ export function ImportExport({ onClose }: { onClose: () => void }) {
   const [phase, setPhase] = useState<Phase>("menu");
   const [kdbxPath, setKdbxPath] = useState("");
   const [kdbxPass, setKdbxPass] = useState("");
+  const [bwPath, setBwPath] = useState("");
+  const [bwPass, setBwPass] = useState("");
   const [fmt, setFmt] = useState<"json" | "csv">("json");
   const [msg, setMsg] = useState("");
   const [donePath, setDonePath] = useState("");
@@ -31,6 +33,12 @@ export function ImportExport({ onClose }: { onClose: () => void }) {
     setPhase("busy");
     try {
       const content = await api.readTextFile(path);
+      // Export cifrado do Bitwarden? Precisa da senha (fluxo separado).
+      if (/"(encrypted|passwordProtected)"\s*:\s*true/.test(content)) {
+        setBwPath(path);
+        setPhase("bw");
+        return;
+      }
       const { items } = parseText(path, content);
       if (!items.length) {
         setMsg("Nenhum item reconhecido no arquivo.");
@@ -63,6 +71,25 @@ export function ImportExport({ onClose }: { onClose: () => void }) {
     } catch (e) {
       setMsg(String(e));
       setPhase("kdbx");
+    }
+  }
+
+  async function importBw() {
+    setMsg("");
+    setPhase("busy");
+    try {
+      const json = await api.importBitwardenEncrypted(bwPath, bwPass);
+      const items = parseBitwardenJson(json);
+      if (!items.length) {
+        setMsg("Nada reconhecido no arquivo.");
+        setPhase("bw");
+        return;
+      }
+      await importItems(items);
+      onClose();
+    } catch (e) {
+      setMsg(String(e));
+      setPhase("bw");
     }
   }
 
@@ -115,6 +142,28 @@ export function ImportExport({ onClose }: { onClose: () => void }) {
               onKeyDown={(e) => e.key === "Enter" && importKdbx()}
             />
             <button className="primary big" onClick={importKdbx} disabled={!kdbxPass}>
+              Importar
+            </button>
+          </>
+        )}
+
+        {phase === "bw" && (
+          <>
+            <h2>Importar Bitwarden (cifrado)</h2>
+            <p className="warn">
+              ⚠️ <strong>Experimental:</strong> a decifragem do export cifrado do
+              Bitwarden ainda não foi testada com arquivo real. Se falhar, exporte do
+              Bitwarden como JSON <strong>não</strong>-cifrado e importe por ali.
+            </p>
+            <input
+              type="password"
+              autoFocus
+              placeholder="senha do export"
+              value={bwPass}
+              onChange={(e) => setBwPass(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && importBw()}
+            />
+            <button className="primary big" onClick={importBw} disabled={!bwPass}>
               Importar
             </button>
           </>

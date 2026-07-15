@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { api } from "./api";
+import { getLastVault, setLastVault } from "./prefs";
 import type { Item, Vault } from "./types";
 
 const CLIPBOARD_CLEAR_MS = 30_000;
@@ -24,6 +25,10 @@ interface AppState {
 
   createVault: (password: string) => Promise<void>;
   openVault: (password: string, path?: string) => Promise<void>;
+  quickUnlock: () => Promise<void>;
+  enableQuickUnlock: () => Promise<void>;
+  disableQuickUnlock: () => Promise<void>;
+  autoType: (text: string) => Promise<void>;
   lock: () => Promise<void>;
   select: (id: string | null) => void;
   setSearch: (s: string) => void;
@@ -65,6 +70,7 @@ export const useStore = create<AppState>((set, get) => ({
       const path = await api.pickSave();
       if (!path) return;
       const { vault } = await api.createVault(path, password);
+      setLastVault(path);
       set({ path, vault: JSON.parse(vault), locked: false, lastActivity: Date.now() });
     } catch (e) {
       set({ error: String(e) });
@@ -79,11 +85,59 @@ export const useStore = create<AppState>((set, get) => ({
       const path = presetPath ?? (await api.pickOpen());
       if (!path) return;
       const { vault } = await api.openVault(path, password);
+      setLastVault(path);
       set({ path, vault: JSON.parse(vault), locked: false, lastActivity: Date.now() });
     } catch (e) {
       set({ error: String(e) });
     } finally {
       set({ busy: false });
+    }
+  },
+
+  quickUnlock: async () => {
+    const path = getLastVault();
+    if (!path) return;
+    set({ busy: true, error: null });
+    try {
+      const { vault } = await api.quickUnlock(path);
+      set({ path, vault: JSON.parse(vault), locked: false, lastActivity: Date.now() });
+    } catch (e) {
+      set({ error: String(e) });
+    } finally {
+      set({ busy: false });
+    }
+  },
+
+  enableQuickUnlock: async () => {
+    const { path } = get();
+    if (!path) return;
+    try {
+      await api.enableQuickUnlock(path);
+      get().showToast("Desbloqueio rápido ativado neste computador");
+    } catch (e) {
+      set({ error: String(e) });
+    }
+  },
+
+  disableQuickUnlock: async () => {
+    const { path } = get();
+    if (!path) return;
+    try {
+      await api.disableQuickUnlock(path);
+      get().showToast("Desbloqueio rápido desativado");
+    } catch (e) {
+      set({ error: String(e) });
+    }
+  },
+
+  autoType: async (text) => {
+    if (!text) return;
+    get().showToast("Digitando em 3 s — clique no campo de destino");
+    await new Promise((r) => setTimeout(r, 3000));
+    try {
+      await api.typeText(text);
+    } catch (e) {
+      get().showToast(String(e));
     }
   },
 

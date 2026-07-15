@@ -34,7 +34,14 @@ export function VaultScreen() {
   const addItem = useStore((s) => s.addItem);
   const addFolder = useStore((s) => s.addFolder);
   const removeFolder = useStore((s) => s.removeFolder);
+  const enableQuickUnlock = useStore((s) => s.enableQuickUnlock);
+  const disableQuickUnlock = useStore((s) => s.disableQuickUnlock);
   const lock = useStore((s) => s.lock);
+
+  const [quickOn, setQuickOn] = useState(false);
+  useEffect(() => {
+    if (path) api.hasQuickUnlock(path).then(setQuickOn).catch(() => {});
+  }, [path]);
 
   const [filter, setFilter] = useState<Filter>("all");
   const [folderFilter, setFolderFilter] = useState<string | null>(null);
@@ -209,6 +216,21 @@ export function VaultScreen() {
           <button className="tools-btn" onClick={() => setShowTools(true)}>
             ⇄ Importar / Exportar
           </button>
+          <button
+            className="tools-btn"
+            title="Abrir este cofre sem digitar a master neste computador (opt-in)"
+            onClick={async () => {
+              if (quickOn) {
+                await disableQuickUnlock();
+                setQuickOn(false);
+              } else {
+                await enableQuickUnlock();
+                setQuickOn(true);
+              }
+            }}
+          >
+            {quickOn ? "🔓 Rápido: on" : "🔒 Rápido: off"}
+          </button>
         </div>
       </aside>
 
@@ -234,6 +256,7 @@ function ItemEditor({ item }: { item: Item }) {
   const restoreItem = useStore((s) => s.restoreItem);
   const deleteForever = useStore((s) => s.deleteForever);
   const copySecret = useStore((s) => s.copySecret);
+  const autoType = useStore((s) => s.autoType);
   const showToast = useStore((s) => s.showToast);
   const folders = useStore((s) => s.vault?.folders ?? []);
 
@@ -355,6 +378,9 @@ function ItemEditor({ item }: { item: Item }) {
               onBlur={() => updateItem(draft)}
             />
             <button onClick={() => copySecret(draft.login!.username, "Usuário")}>Copiar</button>
+            <button title="Digitar no campo em foco" onClick={() => autoType(draft.login!.username)}>
+              ⌨
+            </button>
           </Field>
 
           <Field label="Senha">
@@ -366,6 +392,9 @@ function ItemEditor({ item }: { item: Item }) {
             />
             <button onClick={() => setShowPw((v) => !v)}>{showPw ? "Ocultar" : "Ver"}</button>
             <button onClick={() => copySecret(draft.login!.password, "Senha")}>Copiar</button>
+            <button title="Digitar no campo em foco" onClick={() => autoType(draft.login!.password)}>
+              ⌨
+            </button>
             <button onClick={() => setShowGen((v) => !v)}>Gerar</button>
           </Field>
           <div className="under-field">

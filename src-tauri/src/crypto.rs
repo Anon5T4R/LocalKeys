@@ -143,6 +143,63 @@ impl SessionKey {
     pub fn seal(&self, plaintext: &[u8]) -> Result<Vec<u8>, CryptoError> {
         seal_bytes(&self.key, &self.salt, self.params, plaintext)
     }
+
+    /// Cópia da chave bruta (32 bytes) — **só** para guardar no cofre do SO
+    /// (keyring) no desbloqueio rápido opt-in. Trate como segredo.
+    pub fn key_bytes(&self) -> [u8; KEY_LEN] {
+        *self.key
+    }
+}
+
+/// Lê os campos do header (magic/versão/kdf/params/salt/nonce) de um `.tkeys`.
+fn parse_header(file: &[u8]) -> Result<(KdfParams, [u8; SALT_LEN], [u8; NONCE_LEN]), CryptoError> {
+    if file.len() < HEADER_LEN || file[0..6] != MAGIC {
+        return Err(CryptoError::BadFormat);
+    }
+    let version = file[6];
+    if version != FORMAT_VERSION {
+        return Err(CryptoError::UnsupportedVersion(version));
+    }
+    if file[7] != KDF_ARGON2ID {
+        return Err(CryptoError::BadFormat);
+    }
+    let params = KdfParams {
+        m_cost: u32::from_le_bytes(file[8..12].try_into().unwrap()),
+        t_cost: u32::from_le_bytes(file[12..16].try_into().unwrap()),
+        p_cost: u32::from_le_bytes(file[16..20].try_into().unwrap()),
+    };
+    let salt: [u8; SALT_LEN] = file[20..36].try_into().unwrap();
+    let nonce: [u8; NONCE_LEN] = file[36..60].try_into().unwrap();
+    Ok((params, salt, nonce))
+}
+
+/// Decifra um `.tkeys` com a **chave bruta** (sem re-rodar o Argon2) — usado pelo
+/// desbloqueio rápido, que guarda a chave no cofre do SO em vez da master password.
+pub fn open_with_key(
+    raw_key: &[u8; KEY_LEN],
+    file: &[u8],
+) -> Result<(Zeroizing<Vec<u8>>, SessionKey), CryptoError> {
+    let (params, salt, nonce) = parse_header(file)?;
+    let header = &file[0..HEADER_LEN];
+    let ciphertext = &file[HEADER_LEN..];
+    let cipher = XChaCha20Poly1305::new(Key::from_slice(raw_key));
+    let plaintext = cipher
+        .decrypt(
+            XNonce::from_slice(&nonce),
+            Payload {
+                msg: ciphertext,
+                aad: header,
+            },
+        )
+        .map_err(|_| CryptoError::Decrypt)?;
+    Ok((
+        Zeroizing::new(plaintext),
+        SessionKey {
+            key: Zeroizing::new(*raw_key),
+            salt,
+            params,
+        },
+    ))
 }
 
 /// Passo comum de cifragem: sorteia nonce, monta o header (que vira AAD) e roda

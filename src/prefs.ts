@@ -2,6 +2,24 @@
 // coisas como "a última pasta que você usou", pra não caçar o arquivo toda vez.
 
 const LAST_DIR_KEY = "localkeys.lastDir";
+const LAST_VAULT_KEY = "localkeys.lastVault";
+
+/** Caminho do último cofre aberto — pra oferecer desbloqueio rápido. */
+export function getLastVault(): string | null {
+  try {
+    return localStorage.getItem(LAST_VAULT_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setLastVault(path: string) {
+  try {
+    localStorage.setItem(LAST_VAULT_KEY, path);
+  } catch {
+    /* sem problema */
+  }
+}
 
 export function getLastDir(): string | null {
   try {

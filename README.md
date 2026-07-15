@@ -66,12 +66,13 @@ Requisitos: Node 22+, Rust estável, e as dependências de sistema do Tauri v2.
 - **v0.3:** **histórico de senhas** por login; **campos personalizados**
   (texto/oculto); **anexos** pequenos cifrados no cofre (máx. 1 MB); **relatório**
   local de senhas fracas/repetidas; **gravação atômica** (rename).
-- **v0.4 (atual):** **clipboard nativo no Windows** que exclui a senha do histórico
+- **v0.4:** **clipboard nativo no Windows** que exclui a senha do histórico
   (Win+V) e da nuvem; **zeroize** de senha/vault na memória; **pastas** pra
   organizar; diálogos lembram a **última pasta**; **import melhorado** (Proton Pass,
   Firefox — nada se perde: colunas extras viram campos) + aviso pra apagar o CSV.
-- **v0.5+:** auto-type, import do JSON **cifrado** do Bitwarden, desbloqueio por
-  Windows Hello (keyring).
+- **v0.5 (atual):** **auto-type** (digita usuário/senha no campo, sem clipboard —
+  o copiar continua); **desbloqueio rápido** opt-in guardando a chave no cofre do
+  SO (keyring); import do export **cifrado** do Bitwarden (experimental).
 
 ## Licença
 

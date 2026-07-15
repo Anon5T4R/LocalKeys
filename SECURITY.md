@@ -100,6 +100,13 @@ de segurança têm prioridade sobre qualquer feature.
   notas); anexos e campos customizados do KeePass não são trazidos.
 - **Anexos** ficam base64 dentro do blob cifrado (herdam toda a cifra do cofre),
   mas cada save recifra o cofre inteiro — por isso o limite de 1 MB por anexo.
+- **Desbloqueio rápido (v0.5, opt-in, default desligado):** ao ativar, a chave do
+  cofre é guardada no **cofre de credenciais do SO** (Windows Credential Manager /
+  Keychain / Secret Service) para abrir sem digitar a master. **Tradeoff:** quem
+  tiver acesso à sua sessão logada do SO pode abrir o cofre. Trocar a master
+  **invalida** a chave guardada. Desligue se preferir sempre pedir a master.
+- **Auto-type (v0.5):** digita direto no campo em foco — evita o clipboard, mas
+  digita em **qualquer** janela que estiver com foco; confira o alvo antes.
 
 > **Gravação atômica (v0.3):** o cofre é escrito num arquivo temporário e
 > renomeado por cima (o rename substitui de forma atômica no Windows e no Unix),

@@ -33,7 +33,8 @@ jobs:
             libappindicator3-dev \
             librsvg2-dev \
             patchelf \
-            build-essential
+            build-essential \
+            libxdo-dev
 
       - name: Install JS deps
         run: npm ci

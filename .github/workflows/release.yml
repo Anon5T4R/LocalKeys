@@ -51,7 +51,8 @@ jobs:
             librsvg2-dev \
             patchelf \
             build-essential \
-            file
+            file \
+            libxdo-dev
 
       - name: Install JS deps
         run: npm ci
@@ -89,8 +90,10 @@ jobs:
             - **TOTP** (códigos de 6 dígitos com contagem regressiva) e
               **histórico de senhas** por login
             - **Relatório** local de senhas fracas/repetidas
-            - **Importar** de Bitwarden (JSON), Chrome/Edge, LastPass, 1Password
-              (CSV) e KeePass (`.kdbx`); **exportar** JSON/CSV
+            - **Auto-type** (digita usuário/senha no campo, sem clipboard) e
+              **desbloqueio rápido** opt-in (keyring do SO)
+            - **Importar** de Bitwarden (JSON claro e **cifrado**), Chrome/Edge,
+              LastPass, 1Password (CSV) e KeePass (`.kdbx`); **exportar** JSON/CSV
             - Gerador de senhas e frase-senha (diceware, wordlist EFF) + força (zxcvbn)
             - Auto-lock por inatividade e ao ocultar a janela; **cópia protegida do
               histórico do Windows (Win+V)/nuvem** e limpa em 30 s; **gravação
