@@ -1,0 +1,16 @@
+node_modules
+dist
+dist-ssr
+*.local
+
+# editor / OS
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea
+
+# vaults de teste — NUNCA versionar arquivos .tkeys
+*.tkeys
+
+# Claude Code
+.claude

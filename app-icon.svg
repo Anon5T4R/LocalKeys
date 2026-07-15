@@ -1,0 +1,26 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6366f1"/>
+      <stop offset="1" stop-color="#4338ca"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e5e7ff"/>
+    </linearGradient>
+  </defs>
+
+  <!-- fundo arredondado -->
+  <rect x="0" y="0" width="1024" height="1024" rx="230" fill="url(#bg)"/>
+
+  <!-- arco do cadeado -->
+  <path d="M 352 460 L 352 372 A 160 160 0 0 1 672 372 L 672 460"
+        fill="none" stroke="#eef0ff" stroke-width="70" stroke-linecap="round"/>
+
+  <!-- corpo do cadeado -->
+  <rect x="300" y="452" width="424" height="330" rx="70" fill="url(#body)"/>
+
+  <!-- fechadura -->
+  <circle cx="512" cy="595" r="58" fill="#4338ca"/>
+  <rect x="486" y="600" width="52" height="120" rx="26" fill="#4338ca"/>
+</svg>

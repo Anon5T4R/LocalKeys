@@ -1,0 +1,46 @@
+[package]
+name = "localkeys"
+version = "0.1.0"
+description = "LocalKeys — gerenciador de senhas 100% local e offline"
+authors = ["Taylor"]
+edition = "2021"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/Anon5T4R/LocalKeys"
+
+[lib]
+# O sufixo `_lib` evita conflito entre o nome da lib e o do binário no Windows
+# (https://github.com/rust-lang/cargo/issues/8519).
+name = "localkeys_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# --- Núcleo criptográfico (nenhuma primitiva feita em casa; só crates auditados) ---
+# Cifra do vault: XChaCha20-Poly1305 (AEAD) — RustCrypto.
+chacha20poly1305 = "0.10"
+# KDF da master password: Argon2id — mesmo crate já usado no LocalData.
+argon2 = "0.5"
+# Apaga chave/segredos da memória ao trancar.
+zeroize = { version = "1", features = ["derive"] }
+# CSPRNG do SO para salt, nonce e o gerador de senhas.
+rand = "0.8"
+# Força de senha (mesmo algoritmo do Bitwarden/Dropbox).
+zxcvbn = "3"
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-single-instance = "2"
+
+[profile.release]
+opt-level = 3
+# Argon2id se beneficia de código otimizado; LTO reduce o tamanho do exe.
+lto = true
+# `panic = abort` evita que um panic com segredo na stack desenrole/exponha.
+panic = "abort"
