@@ -119,7 +119,22 @@ export const useStore = create<AppState>((set, get) => ({
   updateItem: async (item) => {
     const { vault, path } = get();
     if (!vault) return;
-    const updated = { ...item, updatedAt: Date.now() };
+    const prev = vault.items.find((i) => i.id === item.id);
+    let updated = { ...item, updatedAt: Date.now() };
+    // Histórico: se a senha de um login mudou, guarda a anterior (cap 20).
+    if (
+      item.kind === "login" &&
+      prev?.login &&
+      item.login &&
+      prev.login.password &&
+      prev.login.password !== item.login.password
+    ) {
+      const hist = [
+        { password: prev.login.password, at: Date.now() },
+        ...(item.passwordHistory ?? []),
+      ].slice(0, 20);
+      updated = { ...updated, passwordHistory: hist };
+    }
     const next = {
       ...vault,
       items: vault.items.map((i) => (i.id === item.id ? updated : i)),

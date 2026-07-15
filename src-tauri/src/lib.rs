@@ -13,6 +13,7 @@ mod totp;
 use std::path::Path;
 use std::sync::Mutex;
 
+use base64::Engine;
 use serde::Serialize;
 use tauri::{Manager, State};
 
@@ -35,6 +36,23 @@ struct OpenResult {
     vault: String,
 }
 
+/// Gravação atômica: escreve num arquivo temporário no mesmo diretório e o
+/// renomeia por cima (o `fs::rename` substitui o destino de forma atômica tanto
+/// no Windows quanto no Unix). Mantém um `.bak` do estado anterior. Assim uma
+/// gravação interrompida não corrompe o vault.
+fn atomic_write(path: &str, bytes: &[u8]) -> Result<(), String> {
+    let p = Path::new(path);
+    if p.exists() {
+        let _ = std::fs::copy(p, format!("{path}.bak"));
+    }
+    let tmp = format!("{path}.tmp");
+    std::fs::write(&tmp, bytes).map_err(|e| format!("falha ao gravar '{tmp}': {e}"))?;
+    std::fs::rename(&tmp, p).map_err(|e| {
+        let _ = std::fs::remove_file(&tmp);
+        format!("falha ao substituir '{path}': {e}")
+    })
+}
+
 /// Cria um vault novo no `path` com a `password` e já o deixa destrancado.
 #[tauri::command(async)]
 fn create_vault(
@@ -47,7 +65,7 @@ fn create_vault(
     }
     let (file, session) =
         crypto::create_vault(&password, EMPTY_VAULT.as_bytes()).map_err(|e| e.to_string())?;
-    std::fs::write(&path, &file).map_err(|e| format!("falha ao gravar '{path}': {e}"))?;
+    atomic_write(&path, &file)?;
     *state.session.lock().unwrap() = Some(session);
     Ok(OpenResult {
         vault: EMPTY_VAULT.to_string(),
@@ -86,14 +104,7 @@ fn save_vault(
     let guard = state.session.lock().unwrap();
     let session = guard.as_ref().ok_or("vault está trancado")?;
     let file = session.seal(vault.as_bytes()).map_err(|e| e.to_string())?;
-
-    // Backup do estado anterior antes de sobrescrever (rede de segurança contra
-    // gravação parcial). Atomicidade via rename fica para v0.2.
-    if Path::new(&path).exists() {
-        let _ = std::fs::copy(&path, format!("{path}.bak"));
-    }
-    std::fs::write(&path, &file).map_err(|e| format!("falha ao salvar '{path}': {e}"))?;
-    Ok(())
+    atomic_write(&path, &file)
 }
 
 /// Tranca o vault: apaga a chave de sessão da memória.
@@ -122,11 +133,7 @@ fn change_master_password(
     let file = std::fs::read(&path).map_err(|e| format!("falha ao ler '{path}': {e}"))?;
     let renewed =
         crypto::change_password(&old_password, &new_password, &file).map_err(|e| e.to_string())?;
-    if Path::new(&path).exists() {
-        let _ = std::fs::copy(&path, format!("{path}.bak"));
-    }
-    std::fs::write(&path, &renewed).map_err(|e| format!("falha ao salvar '{path}': {e}"))?;
-    Ok(())
+    atomic_write(&path, &renewed)
 }
 
 #[tauri::command(async)]
@@ -167,6 +174,40 @@ fn read_text_file(path: String) -> Result<String, String> {
 #[tauri::command(async)]
 fn write_text_file(path: String, content: String) -> Result<(), String> {
     std::fs::write(&path, content).map_err(|e| format!("falha ao gravar '{path}': {e}"))
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AttachmentData {
+    name: String,
+    size: u64,
+    data_b64: String,
+}
+
+/// Lê um arquivo binário (anexo) e devolve nome/tamanho/base64. O conteúdo será
+/// guardado dentro do blob cifrado do vault.
+#[tauri::command(async)]
+fn read_file_b64(path: String) -> Result<AttachmentData, String> {
+    let bytes = std::fs::read(&path).map_err(|e| format!("falha ao ler '{path}': {e}"))?;
+    let name = Path::new(&path)
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("arquivo")
+        .to_string();
+    Ok(AttachmentData {
+        name,
+        size: bytes.len() as u64,
+        data_b64: base64::engine::general_purpose::STANDARD.encode(&bytes),
+    })
+}
+
+/// Grava um anexo (base64 → bytes) no `path` escolhido (salvar/baixar anexo).
+#[tauri::command(async)]
+fn write_file_b64(path: String, data_b64: String) -> Result<(), String> {
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(data_b64.as_bytes())
+        .map_err(|e| format!("base64 inválido: {e}"))?;
+    std::fs::write(&path, bytes).map_err(|e| format!("falha ao gravar '{path}': {e}"))
 }
 
 /// Caminho passado no launch (abrir um `.tkeys` pelo "Abrir com"), se houver.
@@ -210,6 +251,8 @@ pub fn run() {
             import_kdbx,
             read_text_file,
             write_text_file,
+            read_file_b64,
+            write_file_b64,
             get_startup_file,
         ])
         .run(tauri::generate_context!())

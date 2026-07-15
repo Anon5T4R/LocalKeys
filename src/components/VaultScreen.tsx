@@ -1,10 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
+import { api } from "../api";
 import { useStore } from "../store";
-import { emptyItem, KIND_LABEL, type Item, type ItemKind } from "../types";
+import {
+  emptyItem,
+  KIND_LABEL,
+  MAX_ATTACHMENT_BYTES,
+  type Attachment,
+  type Item,
+  type ItemKind,
+} from "../types";
 import { Generator } from "./Generator";
 import { StrengthMeter } from "./StrengthMeter";
 import { TotpDisplay } from "./TotpDisplay";
 import { ImportExport } from "./ImportExport";
+import { SecurityReport } from "./SecurityReport";
 
 type Filter = "all" | "fav" | ItemKind | "trash";
 
@@ -27,6 +36,7 @@ export function VaultScreen() {
 
   const [filter, setFilter] = useState<Filter>("all");
   const [showTools, setShowTools] = useState(false);
+  const [showReport, setShowReport] = useState(false);
 
   const items = vault?.items ?? [];
   const selected = items.find((i) => i.id === selectedId) ?? null;
@@ -129,9 +139,14 @@ export function VaultScreen() {
           {visible.length === 0 && <li className="empty">Nada aqui.</li>}
         </ul>
 
-        <button className="tools-btn" onClick={() => setShowTools(true)}>
-          ⇄ Importar / Exportar
-        </button>
+        <div className="sidebar-foot">
+          <button className="tools-btn" onClick={() => setShowReport(true)}>
+            🛡️ Relatório
+          </button>
+          <button className="tools-btn" onClick={() => setShowTools(true)}>
+            ⇄ Importar / Exportar
+          </button>
+        </div>
       </aside>
 
       <main className="detail">
@@ -145,6 +160,7 @@ export function VaultScreen() {
       </main>
 
       {showTools && <ImportExport onClose={() => setShowTools(false)} />}
+      {showReport && <SecurityReport onClose={() => setShowReport(false)} />}
     </div>
   );
 }
@@ -155,10 +171,12 @@ function ItemEditor({ item }: { item: Item }) {
   const restoreItem = useStore((s) => s.restoreItem);
   const deleteForever = useStore((s) => s.deleteForever);
   const copySecret = useStore((s) => s.copySecret);
+  const showToast = useStore((s) => s.showToast);
 
   const [draft, setDraft] = useState<Item>(item);
   const [showPw, setShowPw] = useState(false);
   const [showGen, setShowGen] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => setDraft(item), [item]);
 
@@ -170,6 +188,64 @@ function ItemEditor({ item }: { item: Item }) {
   const patchLogin = (p: Partial<NonNullable<Item["login"]>>) =>
     commit({ ...draft, login: { ...draft.login!, ...p } });
 
+  // --- campos personalizados ---
+  const fields = draft.customFields ?? [];
+  const addField = () =>
+    commit({
+      ...draft,
+      customFields: [...fields, { id: crypto.randomUUID(), name: "", value: "", hidden: false }],
+    });
+  const setField = (id: string, p: Partial<(typeof fields)[number]>) =>
+    setDraft({
+      ...draft,
+      customFields: fields.map((f) => (f.id === id ? { ...f, ...p } : f)),
+    });
+  const commitFields = () => updateItem(draft);
+  const toggleFieldHidden = (id: string) =>
+    commit({
+      ...draft,
+      customFields: fields.map((f) => (f.id === id ? { ...f, hidden: !f.hidden } : f)),
+    });
+  const removeField = (id: string) =>
+    commit({ ...draft, customFields: fields.filter((f) => f.id !== id) });
+
+  // --- anexos (guardados base64 no blob) ---
+  const attachments = draft.attachments ?? [];
+  async function addAttachment() {
+    const path = await api.pickFileOpen();
+    if (!path) return;
+    try {
+      const data = await api.readFileB64(path);
+      if (data.size > MAX_ATTACHMENT_BYTES) {
+        showToast("Anexo grande demais (máx. 1 MB)");
+        return;
+      }
+      const att: Attachment = {
+        id: crypto.randomUUID(),
+        name: data.name,
+        size: data.size,
+        mime: "",
+        dataB64: data.dataB64,
+      };
+      commit({ ...draft, attachments: [...attachments, att] });
+    } catch (e) {
+      showToast(String(e));
+    }
+  }
+  async function saveAttachment(att: Attachment) {
+    const path = await api.pickFileSave(att.name);
+    if (!path) return;
+    try {
+      await api.writeFileB64(path, att.dataB64);
+      showToast("Anexo salvo");
+    } catch (e) {
+      showToast(String(e));
+    }
+  }
+  const removeAttachment = (id: string) =>
+    commit({ ...draft, attachments: attachments.filter((a) => a.id !== id) });
+
+  const history = draft.passwordHistory ?? [];
   const inTrash = draft.deletedAt != null;
 
   return (
@@ -299,6 +375,77 @@ function ItemEditor({ item }: { item: Item }) {
           onBlur={() => updateItem(draft)}
         />
       </Field>
+
+      {/* Campos personalizados */}
+      <div className="section">
+        <div className="section-head">
+          <span>Campos personalizados</span>
+          <button onClick={addField}>+ Adicionar</button>
+        </div>
+        {fields.map((f) => (
+          <div key={f.id} className="cf-row">
+            <input
+              className="cf-name"
+              placeholder="nome"
+              value={f.name}
+              onChange={(e) => setField(f.id, { name: e.target.value })}
+              onBlur={commitFields}
+            />
+            <input
+              className="cf-value"
+              type={f.hidden ? "password" : "text"}
+              placeholder="valor"
+              value={f.value}
+              onChange={(e) => setField(f.id, { value: e.target.value })}
+              onBlur={commitFields}
+            />
+            <button title={f.hidden ? "Mostrar" : "Ocultar"} onClick={() => toggleFieldHidden(f.id)}>
+              {f.hidden ? "🙈" : "👁"}
+            </button>
+            <button title="Copiar" onClick={() => copySecret(f.value, f.name || "Campo")}>
+              ⧉
+            </button>
+            <button title="Remover" onClick={() => removeField(f.id)}>
+              ✕
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Anexos */}
+      <div className="section">
+        <div className="section-head">
+          <span>Anexos <span className="muted">(máx. 1 MB, cifrados no cofre)</span></span>
+          <button onClick={addAttachment}>+ Anexar</button>
+        </div>
+        {attachments.map((a) => (
+          <div key={a.id} className="att-row">
+            <span className="att-name">📎 {a.name}</span>
+            <span className="att-size">{Math.max(1, Math.round(a.size / 1024))} KB</span>
+            <button onClick={() => saveAttachment(a)}>Salvar</button>
+            <button title="Remover" onClick={() => removeAttachment(a.id)}>
+              ✕
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Histórico de senhas (login) */}
+      {draft.kind === "login" && history.length > 0 && (
+        <div className="section">
+          <button className="section-toggle" onClick={() => setShowHistory((v) => !v)}>
+            {showHistory ? "▾" : "▸"} Histórico de senhas ({history.length})
+          </button>
+          {showHistory &&
+            history.map((h, i) => (
+              <div key={i} className="hist-row">
+                <code>{h.password}</code>
+                <span className="muted">{new Date(h.at).toLocaleDateString("pt-BR")}</span>
+                <button onClick={() => copySecret(h.password, "Senha antiga")}>Copiar</button>
+              </div>
+            ))}
+        </div>
+      )}
 
       <div className="editor-foot">
         {inTrash ? (

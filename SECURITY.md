@@ -88,13 +88,18 @@ Abra uma issue **sem detalhes sensíveis** pedindo um canal privado, ou descreva
 problema de forma responsável. Este é um projeto pessoal da suíte Local; correções
 de segurança têm prioridade sobre qualquer feature.
 
-## Limitações conhecidas (v0.2)
+## Limitações conhecidas (v0.3)
 
 - A limpeza da área de transferência é feita pelo front-end (WebView); mover o
-  timer para o Rust (crate `arboard`) é um endurecimento previsto para a v0.3.
-- A gravação ainda não é atômica (escreve por cima, com `.bak` como rede de
-  segurança); rename atômico previsto para a v0.3.
+  timer para o Rust (crate `arboard`) é um endurecimento previsto para a v0.4.
 - **Export gera arquivo em claro** (sem cifra) — é o único jeito de migrar para
   outro app; a UI avisa em vermelho. Apague o arquivo depois de usar.
 - O import de `.kdbx` lê os campos padrão (título, usuário, senha, URL, TOTP,
   notas); anexos e campos customizados do KeePass não são trazidos.
+- **Anexos** ficam base64 dentro do blob cifrado (herdam toda a cifra do cofre),
+  mas cada save recifra o cofre inteiro — por isso o limite de 1 MB por anexo.
+
+> **Gravação atômica (v0.3):** o cofre é escrito num arquivo temporário e
+> renomeado por cima (o rename substitui de forma atômica no Windows e no Unix),
+> então uma gravação interrompida não corrompe o `.tkeys`. O `.bak` do estado
+> anterior continua sendo mantido.

@@ -428,6 +428,102 @@ input.title {
   width: 160px;
 }
 
+/* ---------- Editor: seções (campos, anexos, histórico) ---------- */
+.section {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.section-head button {
+  font-size: 12px;
+  padding: 3px 8px;
+}
+.section-toggle {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 12.5px;
+  padding: 0;
+}
+.cf-row,
+.att-row,
+.hist-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.cf-name {
+  flex: 0 0 34%;
+}
+.cf-value {
+  flex: 1;
+}
+.cf-row button,
+.att-row button,
+.hist-row button {
+  padding: 6px 8px;
+  font-size: 12.5px;
+}
+.att-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.att-size {
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.hist-row code {
+  flex: 1;
+}
+
+/* ---------- Relatório de segurança ---------- */
+.modal.report {
+  max-width: 480px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+.report-section h3 {
+  font-size: 14px;
+  margin: 6px 0;
+}
+.report .ok {
+  color: #16a34a;
+  font-size: 13px;
+  margin: 4px 0;
+}
+.report-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.report-count {
+  font-size: 12px;
+  color: var(--muted);
+}
+.report-item {
+  font-size: 12.5px;
+  padding: 4px 9px;
+  border-radius: 999px;
+}
+.sidebar-foot {
+  display: flex;
+  gap: 6px;
+}
+
 /* ---------- TOTP ---------- */
 .totp {
   display: flex;

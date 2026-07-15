@@ -42,6 +42,21 @@ export interface PasswordHistoryEntry {
   at: number;
 }
 
+export interface CustomField {
+  id: string;
+  name: string;
+  value: string;
+  hidden: boolean; // true => mostrar como senha (oculto)
+}
+
+export interface Attachment {
+  id: string;
+  name: string;
+  size: number; // bytes do conteúdo original
+  mime: string;
+  dataB64: string; // conteúdo em base64, dentro do blob cifrado
+}
+
 export interface Item {
   id: string;
   kind: ItemKind;
@@ -56,7 +71,12 @@ export interface Item {
   card?: Card;
   identity?: Identity;
   passwordHistory?: PasswordHistoryEntry[];
+  customFields?: CustomField[];
+  attachments?: Attachment[];
 }
+
+/** Limite por anexo — o blob inteiro é recifrado a cada save, então nada de arquivos grandes. */
+export const MAX_ATTACHMENT_BYTES = 1024 * 1024; // 1 MiB
 
 export const KIND_LABEL: Record<ItemKind, string> = {
   login: "Login",

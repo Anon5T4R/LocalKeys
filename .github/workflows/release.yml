@@ -85,12 +85,15 @@ jobs:
 
             ### O que o app faz
             - Cofre com CRUD de logins, notas, cartões e identidades; busca,
-              favoritos, lixeira
-            - **TOTP** (códigos de 6 dígitos com contagem regressiva)
+              favoritos, lixeira, **campos personalizados** e **anexos** cifrados
+            - **TOTP** (códigos de 6 dígitos com contagem regressiva) e
+              **histórico de senhas** por login
+            - **Relatório** local de senhas fracas/repetidas
             - **Importar** de Bitwarden (JSON), Chrome/Edge, LastPass, 1Password
               (CSV) e KeePass (`.kdbx`); **exportar** JSON/CSV
             - Gerador de senhas e frase-senha (diceware, wordlist EFF) + força (zxcvbn)
-            - Auto-lock por inatividade e ao ocultar a janela; limpeza do clipboard em 30 s
+            - Auto-lock por inatividade e ao ocultar a janela; limpeza do clipboard
+              em 30 s; **gravação atômica** do cofre
 
             > **Sem recuperação:** se esquecer a master password, o vault é
             > irrecuperável — é o que o mantém seguro. Faça backup do `.tkeys`.

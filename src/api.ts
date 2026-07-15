@@ -39,6 +39,12 @@ export interface KdbxEntry {
   notes: string;
 }
 
+export interface AttachmentData {
+  name: string;
+  size: number;
+  dataB64: string;
+}
+
 export const api = {
   createVault: (path: string, password: string) =>
     invoke<{ vault: string }>("create_vault", { path, password }),
@@ -62,7 +68,14 @@ export const api = {
   readTextFile: (path: string) => invoke<string>("read_text_file", { path }),
   writeTextFile: (path: string, content: string) =>
     invoke<void>("write_text_file", { path, content }),
+  readFileB64: (path: string) => invoke<AttachmentData>("read_file_b64", { path }),
+  writeFileB64: (path: string, dataB64: string) =>
+    invoke<void>("write_file_b64", { path, dataB64 }),
   startupFile: () => invoke<string | null>("get_startup_file"),
+
+  pickFileOpen: () => openDialog({ multiple: false }) as Promise<string | null>,
+  pickFileSave: (name: string) =>
+    saveDialog({ defaultPath: name }) as Promise<string | null>,
 
   pickImport: () =>
     openDialog({
