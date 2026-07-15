@@ -24,10 +24,12 @@ protege, e como a criptografia funciona. Leia antes de confiar dados reais a ele
   usuário logado captura a master password quando você a digita, ou lê os segredos
   da memória **enquanto o vault está destrancado**. Nenhum gerenciador local
   resolve isso — mantenha o sistema limpo e atualizado.
-- **Histórico de área de transferência.** Ao copiar uma senha, o app limpa a área
-  de transferência após 30 s, mas o **histórico de clipboard do Windows**
-  (`Win+V`), se ligado, guarda uma cópia. **Desligue-o** em
-  *Configurações → Sistema → Área de transferência*.
+- **Histórico de área de transferência.** No **Windows**, ao copiar um segredo o
+  app agora usa a API nativa marcando o conteúdo como **excluído do histórico
+  (`Win+V`) e da nuvem**, e limpa após 30 s — a senha não entra mais no histórico
+  (v0.4). No **Linux** a cópia ainda é pelo WebView (limpa em 30 s, mas gerenciadores
+  de área de transferência de terceiros podem reter). Mesmo assim, manter o histórico
+  do SO desligado é boa prática.
 - **Master password fraca ou esquecida.** A força do vault é a força da sua senha
   mestra. E **não há recuperação**: esqueceu, perdeu o vault. Isso é intencional —
   uma porta dos fundos para você seria uma porta dos fundos para um atacante.
@@ -88,10 +90,10 @@ Abra uma issue **sem detalhes sensíveis** pedindo um canal privado, ou descreva
 problema de forma responsável. Este é um projeto pessoal da suíte Local; correções
 de segurança têm prioridade sobre qualquer feature.
 
-## Limitações conhecidas (v0.3)
+## Limitações conhecidas (v0.4)
 
-- A limpeza da área de transferência é feita pelo front-end (WebView); mover o
-  timer para o Rust (crate `arboard`) é um endurecimento previsto para a v0.4.
+- No **Windows** a cópia é nativa e fora do histórico/nuvem; no **Linux** ainda é
+  pelo WebView (limpa em 30 s, sem exclusão de histórico de terceiros).
 - **Export gera arquivo em claro** (sem cifra) — é o único jeito de migrar para
   outro app; a UI avisa em vermelho. Apague o arquivo depois de usar.
 - O import de `.kdbx` lê os campos padrão (título, usuário, senha, URL, TOTP,

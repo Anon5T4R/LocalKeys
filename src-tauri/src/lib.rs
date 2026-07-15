@@ -5,6 +5,8 @@
 //! da memória ao trancar. O front-end nunca guarda a senha nem a chave — recebe
 //! o conteúdo do vault (para renderizar) e manda de volta o JSON para salvar.
 
+#[cfg(windows)]
+mod clipboard;
 mod crypto;
 mod generator;
 mod kdbx;
@@ -16,6 +18,7 @@ use std::sync::Mutex;
 use base64::Engine;
 use serde::Serialize;
 use tauri::{Manager, State};
+use zeroize::Zeroizing;
 
 use generator::{PassphraseOptions, PasswordOptions, Strength};
 
@@ -60,6 +63,7 @@ fn create_vault(
     password: String,
     state: State<'_, AppState>,
 ) -> Result<OpenResult, String> {
+    let password = Zeroizing::new(password);
     if password.is_empty() {
         return Err("a master password não pode ser vazia".into());
     }
@@ -79,6 +83,7 @@ fn open_vault(
     password: String,
     state: State<'_, AppState>,
 ) -> Result<OpenResult, String> {
+    let password = Zeroizing::new(password);
     let file = std::fs::read(&path).map_err(|e| format!("falha ao ler '{path}': {e}"))?;
     let (plaintext, session) = crypto::open_vault(&password, &file).map_err(|e| e.to_string())?;
     // Backup do último estado bom ao abrir (retenção simples de 1 cópia).
@@ -97,6 +102,8 @@ fn save_vault(
     vault: String,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
+    // O JSON do vault (todas as senhas em claro) é apagado da memória ao sair.
+    let vault = Zeroizing::new(vault);
     // Rejeita lixo antes de cifrar (defesa contra estado corrompido no front).
     serde_json::from_str::<serde_json::Value>(&vault)
         .map_err(|e| format!("vault inválido (não é JSON): {e}"))?;
@@ -127,12 +134,14 @@ fn change_master_password(
     old_password: String,
     new_password: String,
 ) -> Result<(), String> {
+    let old_password = Zeroizing::new(old_password);
+    let new_password = Zeroizing::new(new_password);
     if new_password.is_empty() {
         return Err("a nova master password não pode ser vazia".into());
     }
     let file = std::fs::read(&path).map_err(|e| format!("falha ao ler '{path}': {e}"))?;
-    let renewed =
-        crypto::change_password(&old_password, &new_password, &file).map_err(|e| e.to_string())?;
+    let renewed = crypto::change_password(&old_password, &new_password, &file)
+        .map_err(|e| e.to_string())?;
     atomic_write(&path, &renewed)
 }
 
@@ -210,6 +219,21 @@ fn write_file_b64(path: String, data_b64: String) -> Result<(), String> {
     std::fs::write(&path, bytes).map_err(|e| format!("falha ao gravar '{path}': {e}"))
 }
 
+/// Copia um segredo para a área de transferência **excluindo-o do histórico do
+/// Windows (Win+V) e da nuvem**, limpando após 30 s. Só no Windows; nas outras
+/// plataformas retorna erro e o front cai no clipboard do navegador.
+#[cfg(windows)]
+#[tauri::command(async)]
+fn copy_secret(text: String) -> Result<(), String> {
+    clipboard::copy_secret(text)
+}
+
+#[cfg(not(windows))]
+#[tauri::command(async)]
+fn copy_secret(_text: String) -> Result<(), String> {
+    Err("clipboard nativo indisponível nesta plataforma".into())
+}
+
 /// Caminho passado no launch (abrir um `.tkeys` pelo "Abrir com"), se houver.
 #[tauri::command(async)]
 fn get_startup_file() -> Option<String> {
@@ -253,6 +277,7 @@ pub fn run() {
             write_text_file,
             read_file_b64,
             write_file_b64,
+            copy_secret,
             get_startup_file,
         ])
         .run(tauri::generate_context!())

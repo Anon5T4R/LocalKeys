@@ -4,7 +4,7 @@ import { useStore } from "../store";
 import { detectFormat, kdbxToItems, parseText } from "../import";
 import { exportCsv, exportJson } from "../export";
 
-type Phase = "menu" | "kdbx" | "export" | "busy";
+type Phase = "menu" | "kdbx" | "export" | "busy" | "done";
 
 export function ImportExport({ onClose }: { onClose: () => void }) {
   const vault = useStore((s) => s.vault);
@@ -16,6 +16,8 @@ export function ImportExport({ onClose }: { onClose: () => void }) {
   const [kdbxPass, setKdbxPass] = useState("");
   const [fmt, setFmt] = useState<"json" | "csv">("json");
   const [msg, setMsg] = useState("");
+  const [donePath, setDonePath] = useState("");
+  const [doneCount, setDoneCount] = useState(0);
 
   async function pickAndImport() {
     setMsg("");
@@ -35,8 +37,10 @@ export function ImportExport({ onClose }: { onClose: () => void }) {
         setPhase("menu");
         return;
       }
-      await importItems(items);
-      onClose();
+      const n = await importItems(items);
+      setDonePath(path);
+      setDoneCount(n);
+      setPhase("done");
     } catch (e) {
       setMsg(String(e));
       setPhase("menu");
@@ -144,6 +148,26 @@ export function ImportExport({ onClose }: { onClose: () => void }) {
             </div>
             <button className="danger big" onClick={doExport}>
               Exportar em claro mesmo assim
+            </button>
+          </>
+        )}
+
+        {phase === "done" && (
+          <>
+            <h2>✅ Importado</h2>
+            <p>
+              {doneCount} {doneCount === 1 ? "item importado" : "itens importados"}.
+            </p>
+            <p className="warn">
+              ⚠️ O arquivo <code>{donePath.split(/[\\/]/).pop()}</code> está{" "}
+              <strong>em claro</strong>, com todas as senhas que você acabou de
+              importar. <strong>Apague-o</strong> depois de conferir que veio tudo.
+            </p>
+            <button
+              className="big"
+              onClick={() => api.revealFile(donePath).catch(() => {})}
+            >
+              📂 Abrir a pasta do arquivo
             </button>
           </>
         )}

@@ -92,8 +92,9 @@ jobs:
             - **Importar** de Bitwarden (JSON), Chrome/Edge, LastPass, 1Password
               (CSV) e KeePass (`.kdbx`); **exportar** JSON/CSV
             - Gerador de senhas e frase-senha (diceware, wordlist EFF) + força (zxcvbn)
-            - Auto-lock por inatividade e ao ocultar a janela; limpeza do clipboard
-              em 30 s; **gravação atômica** do cofre
+            - Auto-lock por inatividade e ao ocultar a janela; **cópia protegida do
+              histórico do Windows (Win+V)/nuvem** e limpa em 30 s; **gravação
+              atômica** do cofre; **pastas** para organizar
 
             > **Sem recuperação:** se esquecer a master password, o vault é
             > irrecuperável — é o que o mantém seguro. Faça backup do `.tkeys`.

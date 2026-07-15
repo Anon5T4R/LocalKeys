@@ -48,6 +48,31 @@ jobs:
         working-directory: src-tauri
         run: cargo test
 
+  check-windows:
+    # Compila e testa no Windows também — pega código só-Windows (ex.: o clipboard
+    # nativo com exclusão do histórico) que o job Ubuntu não enxerga (cfg).
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Install JS deps
+        run: npm ci
+      - name: Frontend build
+        run: npm run build
+      - name: Rust testes (Windows)
+        working-directory: src-tauri
+        run: cargo test
+
   audit:
     # App crítico: falha o CI se alguma dependência tiver CVE conhecida (RustSec).
     runs-on: ubuntu-22.04

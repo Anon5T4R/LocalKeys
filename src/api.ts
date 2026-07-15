@@ -3,6 +3,36 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { getLastDir, joinDir, rememberDir } from "./prefs";
+
+/** Abre um diálogo de abrir arquivo começando na última pasta usada. */
+async function openInLastDir(
+  filters?: { name: string; extensions: string[] }[],
+): Promise<string | null> {
+  const dir = getLastDir();
+  const p = (await openDialog({
+    multiple: false,
+    defaultPath: dir ?? undefined,
+    filters,
+  })) as string | null;
+  if (p) rememberDir(p);
+  return p;
+}
+
+/** Abre um diálogo de salvar já na última pasta, sugerindo `name`. */
+async function saveInLastDir(
+  name: string,
+  filters?: { name: string; extensions: string[] }[],
+): Promise<string | null> {
+  const dir = getLastDir();
+  const p = (await saveDialog({
+    defaultPath: dir ? joinDir(dir, name) : name,
+    filters,
+  })) as string | null;
+  if (p) rememberDir(p);
+  return p;
+}
 
 export interface PasswordOptions {
   length: number;
@@ -71,34 +101,26 @@ export const api = {
   readFileB64: (path: string) => invoke<AttachmentData>("read_file_b64", { path }),
   writeFileB64: (path: string, dataB64: string) =>
     invoke<void>("write_file_b64", { path, dataB64 }),
+  /** Copia um segredo protegendo do histórico do Windows (só no Windows). */
+  copySecretNative: (text: string) => invoke<void>("copy_secret", { text }),
   startupFile: () => invoke<string | null>("get_startup_file"),
 
-  pickFileOpen: () => openDialog({ multiple: false }) as Promise<string | null>,
-  pickFileSave: (name: string) =>
-    saveDialog({ defaultPath: name }) as Promise<string | null>,
+  /** Abre o gerenciador de arquivos destacando este arquivo (ex.: o CSV a apagar). */
+  revealFile: (path: string) => revealItemInDir(path),
+
+  pickFileOpen: () => openInLastDir(),
+  pickFileSave: (name: string) => saveInLastDir(name),
 
   pickImport: () =>
-    openDialog({
-      multiple: false,
-      filters: [
-        { name: "Exportações", extensions: ["json", "csv", "kdbx"] },
-        { name: "Todos", extensions: ["*"] },
-      ],
-    }) as Promise<string | null>,
+    openInLastDir([
+      { name: "Exportações", extensions: ["json", "csv", "kdbx"] },
+      { name: "Todos", extensions: ["*"] },
+    ]),
   pickExportPath: (ext: "json" | "csv") =>
-    saveDialog({
-      defaultPath: `localkeys-export.${ext}`,
-      filters: [{ name: ext.toUpperCase(), extensions: [ext] }],
-    }) as Promise<string | null>,
+    saveInLastDir(`localkeys-export.${ext}`, [{ name: ext.toUpperCase(), extensions: [ext] }]),
 
   pickOpen: () =>
-    openDialog({
-      multiple: false,
-      filters: [{ name: "Vault LocalKeys", extensions: ["tkeys"] }],
-    }) as Promise<string | null>,
+    openInLastDir([{ name: "Vault LocalKeys", extensions: ["tkeys"] }]),
   pickSave: () =>
-    saveDialog({
-      defaultPath: "meu-cofre.tkeys",
-      filters: [{ name: "Vault LocalKeys", extensions: ["tkeys"] }],
-    }) as Promise<string | null>,
+    saveInLastDir("meu-cofre.tkeys", [{ name: "Vault LocalKeys", extensions: ["tkeys"] }]),
 };

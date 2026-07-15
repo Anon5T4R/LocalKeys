@@ -30,6 +30,8 @@ interface AppState {
   setShowTrash: (v: boolean) => void;
   addItem: (item: Item) => Promise<void>;
   importItems: (items: Item[]) => Promise<number>;
+  addFolder: (name: string) => Promise<void>;
+  removeFolder: (id: string) => Promise<void>;
   updateItem: (item: Item) => Promise<void>;
   trashItem: (id: string) => Promise<void>;
   restoreItem: (id: string) => Promise<void>;
@@ -116,6 +118,29 @@ export const useStore = create<AppState>((set, get) => ({
     return incoming.length;
   },
 
+  addFolder: async (name) => {
+    const { vault, path } = get();
+    if (!vault || !name.trim()) return;
+    const next = {
+      ...vault,
+      folders: [...vault.folders, { id: crypto.randomUUID(), name: name.trim() }],
+    };
+    set({ vault: next });
+    await persist(path, next);
+  },
+
+  removeFolder: async (id) => {
+    const { vault, path } = get();
+    if (!vault) return;
+    const next = {
+      ...vault,
+      folders: vault.folders.filter((f) => f.id !== id),
+      items: vault.items.map((i) => (i.folderId === id ? { ...i, folderId: null } : i)),
+    };
+    set({ vault: next });
+    await persist(path, next);
+  },
+
   updateItem: async (item) => {
     const { vault, path } = get();
     if (!vault) return;
@@ -176,6 +201,15 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   copySecret: async (text, label) => {
+    // No Windows, o back-end copia excluindo do histórico (Win+V)/nuvem e limpa
+    // em 30 s. Nas outras plataformas cai no clipboard do navegador.
+    try {
+      await api.copySecretNative(text);
+      get().showToast(`${label ?? "Copiado"} — fora do histórico, limpa em 30 s`);
+      return;
+    } catch {
+      /* fallback abaixo */
+    }
     await navigator.clipboard.writeText(text);
     get().showToast(`${label ?? "Copiado"} — limpa em 30 s`);
     // Limpa só se o clipboard ainda contém o que copiamos (não pisa em algo novo).
@@ -184,7 +218,6 @@ export const useStore = create<AppState>((set, get) => ({
         const cur = await navigator.clipboard.readText();
         if (cur === text) await navigator.clipboard.writeText("");
       } catch {
-        // readText pode ser negado; tenta limpar mesmo assim.
         try {
           await navigator.clipboard.writeText("");
         } catch {

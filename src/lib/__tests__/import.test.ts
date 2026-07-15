@@ -38,6 +38,40 @@ describe("parseCsvItems (Chrome/LastPass/genérico)", () => {
   });
 });
 
+describe("parseCsvItems — robustez (ProtonPass/Firefox)", () => {
+  it("ProtonPass: usuário vazio cai pro email, ruído (type) é ignorado", () => {
+    const csv =
+      "type,name,url,email,username,password,note,totp\n" +
+      "login,Site,https://s.com,me@x.com,,segredo,minha nota,JBSWY3DP";
+    const [it0] = parseCsvItems(csv);
+    expect(it0.name).toBe("Site");
+    expect(it0.login?.username).toBe("me@x.com");
+    expect(it0.login?.password).toBe("segredo");
+    expect(it0.login?.totp).toBe("JBSWY3DP");
+    expect(it0.notes).toBe("minha nota");
+    expect(it0.customFields ?? []).toHaveLength(0);
+  });
+
+  it("mantém email como campo quando há usuário separado", () => {
+    const [it0] = parseCsvItems("name,username,email,password\nSite,joe,joe@x.com,pw");
+    expect(it0.login?.username).toBe("joe");
+    expect(it0.customFields?.find((f) => f.name === "email")?.value).toBe("joe@x.com");
+  });
+
+  it("detecta delimitador ponto-e-vírgula", () => {
+    const [it0] = parseCsvItems("name;username;password\nSite;joe;pw");
+    expect(it0.login?.username).toBe("joe");
+    expect(it0.login?.password).toBe("pw");
+  });
+
+  it("coluna desconhecida vira campo personalizado (segredo fica oculto)", () => {
+    const [it0] = parseCsvItems("name,username,password,pin\nSite,joe,pw,1234");
+    const pin = it0.customFields?.find((f) => f.name.toLowerCase() === "pin");
+    expect(pin?.value).toBe("1234");
+    expect(pin?.hidden).toBe(true);
+  });
+});
+
 describe("parseBitwardenJson", () => {
   it("mapeia login, cartão e identidade", () => {
     const json = JSON.stringify({

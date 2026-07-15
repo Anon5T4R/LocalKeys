@@ -4,7 +4,7 @@
 // - CSV: Chrome/Edge, LastPass, 1Password e genérico, por mapeamento de colunas.
 // - KeePass .kdbx: a leitura/decifragem é feita no Rust; aqui só mapeamos.
 
-import { emptyItem, type Item, type ItemKind } from "./types";
+import { emptyItem, type CustomField, type Item, type ItemKind } from "./types";
 import type { KdbxEntry } from "./api";
 
 export type ImportFormat = "bitwarden-json" | "csv" | "kdbx" | "unknown";
@@ -38,8 +38,17 @@ function extractSecret(raw: string): string {
 
 // ---------- CSV ----------
 
-/** Parser de CSV tolerante a aspas, vírgulas e quebras de linha dentro de campo. */
-export function parseCsv(text: string): string[][] {
+/** Detecta o separador do CSV (vírgula, ponto-e-vírgula ou tab) pela 1ª linha. */
+function detectDelimiter(text: string): string {
+  const nl = text.indexOf("\n");
+  const first = nl >= 0 ? text.slice(0, nl) : text;
+  const counts: Record<string, number> = { ",": 0, ";": 0, "\t": 0 };
+  for (const c of first) if (c in counts) counts[c]++;
+  return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+}
+
+/** Parser de CSV tolerante a aspas, separador variável e quebras dentro de campo. */
+export function parseCsv(text: string, delim = ","): string[][] {
   if (text.charCodeAt(0) === 0xfeff) text = text.slice(1); // BOM
   const rows: string[][] = [];
   let row: string[] = [];
@@ -66,7 +75,7 @@ export function parseCsv(text: string): string[][] {
     if (c === '"') {
       inQuotes = true;
       i++;
-    } else if (c === ",") {
+    } else if (c === delim) {
       row.push(field);
       field = "";
       i++;
@@ -92,51 +101,108 @@ export function parseCsv(text: string): string[][] {
 
 const COLS = {
   name: ["name", "title", "account", "item name"],
-  username: ["username", "user", "login_username", "user name", "login", "email"],
-  password: ["password", "pass", "login_password"],
-  url: ["url", "uri", "website", "login_uri", "web site"],
-  totp: ["totp", "otpauth", "otp", "one-time password", "verification code", "otp secret"],
-  notes: ["notes", "note", "extra", "comment", "comments"],
+  username: ["username", "user", "login_username", "user name", "login", "usuário", "usuario"],
+  email: ["email", "e-mail", "e mail"],
+  password: ["password", "pass", "login_password", "senha"],
+  url: ["url", "uri", "website", "login_uri", "web site", "site", "endereço"],
+  totp: ["totp", "otpauth", "otp", "one-time password", "verification code", "otp secret", "2fa"],
+  notes: ["notes", "note", "extra", "comment", "comments", "nota", "observações"],
 };
 
-function findCol(headers: string[], keys: string[]): number {
-  const norm = headers.map((h) => h.trim().toLowerCase());
-  for (const k of keys) {
-    const idx = norm.indexOf(k);
-    if (idx >= 0) return idx;
-  }
-  for (let i = 0; i < norm.length; i++) {
-    if (keys.some((k) => norm[i].includes(k))) return i;
-  }
-  return -1;
+/** Cabeçalhos de metadados que NÃO viram campo personalizado (só ruído). */
+const IGNORE = new Set([
+  "type",
+  "vault",
+  "guid",
+  "grouping",
+  "fav",
+  "favorite",
+  "httprealm",
+  "formactionorigin",
+  "timecreated",
+  "timelastused",
+  "timepasswordchanged",
+  "created",
+  "modified",
+  "reprompt",
+  "android_app",
+]);
+
+function field(name: string, value: string, hidden = false): CustomField {
+  return { id: crypto.randomUUID(), name, value, hidden };
 }
 
 export function parseCsvItems(text: string): Item[] {
-  const rows = parseCsv(text);
+  const rows = parseCsv(text, detectDelimiter(text));
   if (rows.length < 2) return [];
   const headers = rows[0];
-  const ci = {
-    name: findCol(headers, COLS.name),
-    username: findCol(headers, COLS.username),
-    password: findCol(headers, COLS.password),
-    url: findCol(headers, COLS.url),
-    totp: findCol(headers, COLS.totp),
-    notes: findCol(headers, COLS.notes),
+  const norm = headers.map((h) => h.trim().toLowerCase());
+  const consumed = new Set<number>();
+
+  const exact = (keys: string[]): number => {
+    for (const k of keys) {
+      const i = norm.indexOf(k);
+      if (i >= 0 && !consumed.has(i)) {
+        consumed.add(i);
+        return i;
+      }
+    }
+    return -1;
   };
+  const partial = (keys: string[]): number => {
+    for (let i = 0; i < norm.length; i++) {
+      if (!consumed.has(i) && keys.some((k) => norm[i].includes(k))) {
+        consumed.add(i);
+        return i;
+      }
+    }
+    return -1;
+  };
+  // 1ª rodada exata (evita "name" casar com "username"); 2ª rodada parcial.
+  const ci = {
+    name: exact(COLS.name),
+    email: exact(COLS.email),
+    username: exact(COLS.username),
+    password: exact(COLS.password),
+    url: exact(COLS.url),
+    totp: exact(COLS.totp),
+    notes: exact(COLS.notes),
+  };
+  ci.name = ci.name >= 0 ? ci.name : partial(COLS.name);
+  ci.username = ci.username >= 0 ? ci.username : partial(COLS.username);
+  ci.password = ci.password >= 0 ? ci.password : partial(COLS.password);
+  ci.url = ci.url >= 0 ? ci.url : partial(COLS.url);
+  ci.totp = ci.totp >= 0 ? ci.totp : partial(COLS.totp);
+  ci.notes = ci.notes >= 0 ? ci.notes : partial(COLS.notes);
+
   const cell = (row: string[], idx: number) => (idx >= 0 ? (row[idx] ?? "").trim() : "");
   const items: Item[] = [];
   for (const row of rows.slice(1)) {
     const it = emptyItem("login");
-    it.name =
-      cell(row, ci.name) || cell(row, ci.url) || cell(row, ci.username) || "(sem nome)";
+    const email = cell(row, ci.email);
+    const username = cell(row, ci.username) || email; // usuário cai pro email
+    const url = cell(row, ci.url);
+    it.name = cell(row, ci.name) || url || username || "(sem nome)";
     it.notes = cell(row, ci.notes);
-    const uris = [cell(row, ci.url)].filter(Boolean);
     it.login = {
-      username: cell(row, ci.username),
+      username,
       password: cell(row, ci.password),
-      uris: uris.length ? uris : [""],
+      uris: url ? [url] : [""],
       totp: extractSecret(cell(row, ci.totp)),
     };
+
+    // Nada se perde: email (se não virou usuário) + colunas não mapeadas/não-ruído
+    // viram campos personalizados; segredos ficam ocultos.
+    const extras: CustomField[] = [];
+    if (email && email !== username) extras.push(field("email", email));
+    for (let i = 0; i < headers.length; i++) {
+      if (consumed.has(i) || IGNORE.has(norm[i])) continue;
+      const v = cell(row, i);
+      if (!v) continue;
+      const secret = /pass|senha|secret|otp|totp|2fa|key|cvv|pin|seed/.test(norm[i]);
+      extras.push(field(headers[i].trim() || `campo ${i + 1}`, v, secret));
+    }
+    if (extras.length) it.customFields = extras;
     items.push(it);
   }
   return items;

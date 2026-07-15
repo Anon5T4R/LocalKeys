@@ -32,19 +32,25 @@ export function VaultScreen() {
   const setSearch = useStore((s) => s.setSearch);
   const select = useStore((s) => s.select);
   const addItem = useStore((s) => s.addItem);
+  const addFolder = useStore((s) => s.addFolder);
+  const removeFolder = useStore((s) => s.removeFolder);
   const lock = useStore((s) => s.lock);
 
   const [filter, setFilter] = useState<Filter>("all");
+  const [folderFilter, setFolderFilter] = useState<string | null>(null);
+  const [newFolder, setNewFolder] = useState<string | null>(null); // null = input escondido
   const [showTools, setShowTools] = useState(false);
   const [showReport, setShowReport] = useState(false);
 
   const items = vault?.items ?? [];
+  const folders = vault?.folders ?? [];
   const selected = items.find((i) => i.id === selectedId) ?? null;
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     return items
       .filter((i) => (filter === "trash" ? i.deletedAt : !i.deletedAt))
+      .filter((i) => (folderFilter ? i.folderId === folderFilter : true))
       .filter((i) => {
         if (filter === "fav") return i.favorite;
         if (filter === "all" || filter === "trash") return true;
@@ -104,9 +110,10 @@ export function VaultScreen() {
           ).map(([f, label]) => (
             <button
               key={f}
-              className={filter === f ? "active" : ""}
+              className={filter === f && !folderFilter ? "active" : ""}
               onClick={() => {
                 setFilter(f);
+                setFolderFilter(null);
                 select(null);
               }}
             >
@@ -114,6 +121,62 @@ export function VaultScreen() {
             </button>
           ))}
         </nav>
+
+        <div className="folders">
+          <div className="folders-head">
+            <span>Pastas</span>
+            <button onClick={() => setNewFolder(newFolder === null ? "" : null)}>
+              + pasta
+            </button>
+          </div>
+          {newFolder !== null && (
+            <input
+              className="folder-input"
+              autoFocus
+              placeholder="nome + Enter"
+              value={newFolder}
+              onChange={(e) => setNewFolder(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && newFolder.trim()) {
+                  addFolder(newFolder);
+                  setNewFolder(null);
+                } else if (e.key === "Escape") {
+                  setNewFolder(null);
+                }
+              }}
+            />
+          )}
+          {folders.map((f) => {
+            const count = items.filter((i) => !i.deletedAt && i.folderId === f.id).length;
+            return (
+              <div
+                key={f.id}
+                className={`folder-row ${folderFilter === f.id ? "active" : ""}`}
+              >
+                <button
+                  className="folder-name"
+                  onClick={() => {
+                    setFolderFilter(f.id);
+                    setFilter("all");
+                    select(null);
+                  }}
+                >
+                  📁 {f.name} <span className="muted">{count}</span>
+                </button>
+                <button
+                  className="folder-del"
+                  title="Apagar pasta (os itens ficam sem pasta)"
+                  onClick={() => {
+                    removeFolder(f.id);
+                    if (folderFilter === f.id) setFolderFilter(null);
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            );
+          })}
+        </div>
 
         <div className="new-item">
           <span>Novo:</span>
@@ -172,6 +235,7 @@ function ItemEditor({ item }: { item: Item }) {
   const deleteForever = useStore((s) => s.deleteForever);
   const copySecret = useStore((s) => s.copySecret);
   const showToast = useStore((s) => s.showToast);
+  const folders = useStore((s) => s.vault?.folders ?? []);
 
   const [draft, setDraft] = useState<Item>(item);
   const [showPw, setShowPw] = useState(false);
@@ -266,6 +330,20 @@ function ItemEditor({ item }: { item: Item }) {
         >
           ★
         </button>
+      </div>
+
+      <div className="folder-select">
+        <select
+          value={draft.folderId ?? ""}
+          onChange={(e) => patch({ folderId: e.target.value || null })}
+        >
+          <option value="">— sem pasta —</option>
+          {folders.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.name}
+            </option>
+          ))}
+        </select>
       </div>
 
       {draft.kind === "login" && draft.login && (

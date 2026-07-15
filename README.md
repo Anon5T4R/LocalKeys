@@ -63,11 +63,15 @@ Requisitos: Node 22+, Rust estável, e as dependências de sistema do Tauri v2.
   auto-lock.
 - **v0.2:** **TOTP** com contagem regressiva; **importadores** (Bitwarden JSON,
   Chrome/Edge, LastPass, 1Password CSV, KeePass `.kdbx`); **export** JSON/CSV.
-- **v0.3 (atual):** **histórico de senhas** por login; **campos personalizados**
+- **v0.3:** **histórico de senhas** por login; **campos personalizados**
   (texto/oculto); **anexos** pequenos cifrados no cofre (máx. 1 MB); **relatório**
   local de senhas fracas/repetidas; **gravação atômica** (rename).
-- **v0.4+:** import do JSON cifrado do Bitwarden, auto-type, desbloqueio por
-  Windows Hello (keyring), limpeza de clipboard movida pro Rust.
+- **v0.4 (atual):** **clipboard nativo no Windows** que exclui a senha do histórico
+  (Win+V) e da nuvem; **zeroize** de senha/vault na memória; **pastas** pra
+  organizar; diálogos lembram a **última pasta**; **import melhorado** (Proton Pass,
+  Firefox — nada se perde: colunas extras viram campos) + aviso pra apagar o CSV.
+- **v0.5+:** auto-type, import do JSON **cifrado** do Bitwarden, desbloqueio por
+  Windows Hello (keyring).
 
 ## Licença
 
