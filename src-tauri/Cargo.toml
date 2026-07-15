@@ -48,6 +48,7 @@ keyring = { version = "3", features = ["apple-native", "windows-native", "sync-s
 # Import do export CIFRADO do Bitwarden (PBKDF2/Argon2 → HKDF → AES-CBC + HMAC).
 pbkdf2 = "0.12"
 hkdf = "0.12"
+sha2 = "0.10"
 aes = "0.8"
 cbc = { version = "0.1", features = ["alloc"] }
 hmac = "0.12"
