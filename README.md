@@ -59,12 +59,13 @@ Requisitos: Node 22+, Rust estável, e as dependências de sistema do Tauri v2.
 
 ## Roadmap
 
-- **v0.1 (esta):** cofre + CRUD dos 4 tipos, busca, favoritos, lixeira, gerador,
-  força, auto-lock.
-- **v0.2:** TOTP (código com contagem), importadores (LastPass, Chrome, 1Password,
-  KeePass `.kdbx`), export com aviso.
+- **v0.1:** cofre + CRUD dos 4 tipos, busca, favoritos, lixeira, gerador, força,
+  auto-lock.
+- **v0.2 (atual):** **TOTP** com contagem regressiva; **importadores** (Bitwarden
+  JSON, Chrome/Edge, LastPass, 1Password CSV, KeePass `.kdbx`); **export** JSON/CSV
+  com aviso.
 - **v0.3+:** histórico de senhas, campos customizados, anexos cifrados, relatório
-  de senhas fracas/repetidas.
+  de senhas fracas/repetidas; endurecimentos (clipboard no Rust, gravação atômica).
 
 ## Licença
 

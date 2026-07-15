@@ -24,6 +24,21 @@ export interface Strength {
   guessesLog10: number;
 }
 
+export interface TotpCode {
+  code: string;
+  period: number;
+  secondsRemaining: number;
+}
+
+export interface KdbxEntry {
+  name: string;
+  username: string;
+  password: string;
+  url: string;
+  totp: string;
+  notes: string;
+}
+
 export const api = {
   createVault: (path: string, password: string) =>
     invoke<{ vault: string }>("create_vault", { path, password }),
@@ -41,7 +56,27 @@ export const api = {
     invoke<string>("generate_passphrase", { opts }),
   strength: (password: string, userInputs: string[]) =>
     invoke<Strength>("password_strength", { password, userInputs }),
+  totpNow: (secret: string) => invoke<TotpCode>("totp_now", { secret }),
+  importKdbx: (path: string, password: string) =>
+    invoke<KdbxEntry[]>("import_kdbx", { path, password }),
+  readTextFile: (path: string) => invoke<string>("read_text_file", { path }),
+  writeTextFile: (path: string, content: string) =>
+    invoke<void>("write_text_file", { path, content }),
   startupFile: () => invoke<string | null>("get_startup_file"),
+
+  pickImport: () =>
+    openDialog({
+      multiple: false,
+      filters: [
+        { name: "Exportações", extensions: ["json", "csv", "kdbx"] },
+        { name: "Todos", extensions: ["*"] },
+      ],
+    }) as Promise<string | null>,
+  pickExportPath: (ext: "json" | "csv") =>
+    saveDialog({
+      defaultPath: `localkeys-export.${ext}`,
+      filters: [{ name: ext.toUpperCase(), extensions: [ext] }],
+    }) as Promise<string | null>,
 
   pickOpen: () =>
     openDialog({

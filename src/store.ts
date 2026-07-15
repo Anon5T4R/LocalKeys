@@ -29,6 +29,7 @@ interface AppState {
   setSearch: (s: string) => void;
   setShowTrash: (v: boolean) => void;
   addItem: (item: Item) => Promise<void>;
+  importItems: (items: Item[]) => Promise<number>;
   updateItem: (item: Item) => Promise<void>;
   trashItem: (id: string) => Promise<void>;
   restoreItem: (id: string) => Promise<void>;
@@ -103,6 +104,16 @@ export const useStore = create<AppState>((set, get) => ({
     const next = { ...vault, items: [...vault.items, item] };
     set({ vault: next, selectedId: item.id });
     await persist(path, next);
+  },
+
+  importItems: async (incoming) => {
+    const { vault, path } = get();
+    if (!vault || incoming.length === 0) return 0;
+    const next = { ...vault, items: [...vault.items, ...incoming] };
+    set({ vault: next });
+    await persist(path, next);
+    get().showToast(`${incoming.length} ${incoming.length === 1 ? "item importado" : "itens importados"}`);
+    return incoming.length;
   },
 
   updateItem: async (item) => {

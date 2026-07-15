@@ -83,9 +83,12 @@ jobs:
             - **Windows — Instalador:** `*-setup.exe`
             - **Linux — AppImage:** `*.AppImage` (dê permissão de execução e rode)
 
-            ### Nesta versão (v0.1, MVP)
-            - Criar/abrir vault, CRUD de logins, notas, cartões e identidades
-            - Busca instantânea, favoritos, lixeira
+            ### O que o app faz
+            - Cofre com CRUD de logins, notas, cartões e identidades; busca,
+              favoritos, lixeira
+            - **TOTP** (códigos de 6 dígitos com contagem regressiva)
+            - **Importar** de Bitwarden (JSON), Chrome/Edge, LastPass, 1Password
+              (CSV) e KeePass (`.kdbx`); **exportar** JSON/CSV
             - Gerador de senhas e frase-senha (diceware, wordlist EFF) + força (zxcvbn)
             - Auto-lock por inatividade e ao ocultar a janela; limpeza do clipboard em 30 s
 

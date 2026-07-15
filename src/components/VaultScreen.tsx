@@ -3,6 +3,8 @@ import { useStore } from "../store";
 import { emptyItem, KIND_LABEL, type Item, type ItemKind } from "../types";
 import { Generator } from "./Generator";
 import { StrengthMeter } from "./StrengthMeter";
+import { TotpDisplay } from "./TotpDisplay";
+import { ImportExport } from "./ImportExport";
 
 type Filter = "all" | "fav" | ItemKind | "trash";
 
@@ -24,6 +26,7 @@ export function VaultScreen() {
   const lock = useStore((s) => s.lock);
 
   const [filter, setFilter] = useState<Filter>("all");
+  const [showTools, setShowTools] = useState(false);
 
   const items = vault?.items ?? [];
   const selected = items.find((i) => i.id === selectedId) ?? null;
@@ -125,6 +128,10 @@ export function VaultScreen() {
           ))}
           {visible.length === 0 && <li className="empty">Nada aqui.</li>}
         </ul>
+
+        <button className="tools-btn" onClick={() => setShowTools(true)}>
+          ⇄ Importar / Exportar
+        </button>
       </aside>
 
       <main className="detail">
@@ -136,6 +143,8 @@ export function VaultScreen() {
           </div>
         )}
       </main>
+
+      {showTools && <ImportExport onClose={() => setShowTools(false)} />}
     </div>
   );
 }
@@ -231,14 +240,15 @@ function ItemEditor({ item }: { item: Item }) {
             />
           </Field>
 
-          <Field label="TOTP (chave)">
+          <Field label="TOTP (chave base32)">
             <input
-              placeholder="chave base32 (código na v0.2)"
+              placeholder="ex.: JBSWY3DPEHPK3PXP"
               value={draft.login.totp}
               onChange={(e) => setDraft({ ...draft, login: { ...draft.login!, totp: e.target.value } })}
               onBlur={() => updateItem(draft)}
             />
           </Field>
+          {draft.login.totp.trim() && <TotpDisplay secret={draft.login.totp} />}
         </>
       )}
 

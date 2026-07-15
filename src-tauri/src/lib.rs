@@ -7,6 +7,8 @@
 
 mod crypto;
 mod generator;
+mod kdbx;
+mod totp;
 
 use std::path::Path;
 use std::sync::Mutex;
@@ -143,6 +145,30 @@ fn password_strength(password: String, user_inputs: Vec<String>) -> Strength {
     generator::password_strength(&password, &refs)
 }
 
+/// Código TOTP atual de uma chave base32 (+ segundos restantes).
+#[tauri::command(async)]
+fn totp_now(secret: String) -> Result<totp::TotpCode, String> {
+    totp::now(&secret)
+}
+
+/// Importa entradas de um banco KeePass `.kdbx` (leitura, decifrando com a senha).
+#[tauri::command(async)]
+fn import_kdbx(path: String, password: String) -> Result<Vec<kdbx::KdbxEntry>, String> {
+    kdbx::import(&path, &password)
+}
+
+/// Lê um arquivo de texto (para importar CSV/JSON de outros gerenciadores).
+#[tauri::command(async)]
+fn read_text_file(path: String) -> Result<String, String> {
+    std::fs::read_to_string(&path).map_err(|e| format!("falha ao ler '{path}': {e}"))
+}
+
+/// Grava texto (para exportar o vault em JSON/CSV claro).
+#[tauri::command(async)]
+fn write_text_file(path: String, content: String) -> Result<(), String> {
+    std::fs::write(&path, content).map_err(|e| format!("falha ao gravar '{path}': {e}"))
+}
+
 /// Caminho passado no launch (abrir um `.tkeys` pelo "Abrir com"), se houver.
 #[tauri::command(async)]
 fn get_startup_file() -> Option<String> {
@@ -180,6 +206,10 @@ pub fn run() {
             generate_password,
             generate_passphrase,
             password_strength,
+            totp_now,
+            import_kdbx,
+            read_text_file,
+            write_text_file,
             get_startup_file,
         ])
         .run(tauri::generate_context!())
