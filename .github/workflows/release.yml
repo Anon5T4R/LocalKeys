@@ -61,7 +61,11 @@ jobs:
       # quebrado publicado (o vault de alguém depende disto estar correto).
       - name: Rust testes (cripto + gerador)
         working-directory: src-tauri
-        run: cargo test
+        run: cargo test --locked
+
+      - name: Cargo.lock em dia (--locked)
+        working-directory: src-tauri
+        run: cargo fetch --locked
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
