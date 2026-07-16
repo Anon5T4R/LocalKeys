@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { useStore } from "../store";
+import { t } from "../lib/i18n";
 import { findReused, loginsWithPassword } from "../report";
 import type { Item } from "../types";
 
@@ -46,22 +47,22 @@ export function SecurityReport({ onClose }: { onClose: () => void }) {
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal report" onClick={(e) => e.stopPropagation()}>
-        <h2>🛡️ Relatório de segurança</h2>
-        <p className="muted">Feito 100% local — nada é enviado a lugar nenhum.</p>
+        <h2>{t("report.title")}</h2>
+        <p className="muted">{t("report.sub")}</p>
 
         <section className="report-section">
-          <h3>Senhas repetidas{reused.length ? ` (${reused.length})` : ""}</h3>
+          <h3>{t("report.reused")}{reused.length ? ` (${reused.length})` : ""}</h3>
           {reused.length === 0 ? (
-            <p className="ok">Nenhuma senha repetida. 👍</p>
+            <p className="ok">{t("report.reusedNone")}</p>
           ) : (
             reused.map((g, i) => (
               <div key={i} className="report-group">
                 <span className="report-count">
-                  {g.items.length}× a mesma senha:
+                  {t("report.sameCount", { n: g.items.length })}
                 </span>
                 {g.items.map((it) => (
                   <button key={it.id} className="report-item" onClick={() => go(it)}>
-                    {it.name || "(sem nome)"}
+                    {it.name || t("vault.noName")}
                   </button>
                 ))}
               </div>
@@ -70,16 +71,16 @@ export function SecurityReport({ onClose }: { onClose: () => void }) {
         </section>
 
         <section className="report-section">
-          <h3>Senhas fracas{weak ? ` (${weak.length})` : ""}</h3>
+          <h3>{t("report.weak")}{weak ? ` (${weak.length})` : ""}</h3>
           {weak === null ? (
-            <p className="muted">Analisando…</p>
+            <p className="muted">{t("report.analyzing")}</p>
           ) : weak.length === 0 ? (
-            <p className="ok">Nenhuma senha fraca. 👍</p>
+            <p className="ok">{t("report.weakNone")}</p>
           ) : (
             <div className="report-group">
               {weak.map((it) => (
                 <button key={it.id} className="report-item" onClick={() => go(it)}>
-                  {it.name || "(sem nome)"}
+                  {it.name || t("vault.noName")}
                 </button>
               ))}
             </div>
@@ -87,7 +88,7 @@ export function SecurityReport({ onClose }: { onClose: () => void }) {
         </section>
 
         <button className="link" onClick={onClose}>
-          Fechar
+          {t("ie.close")}
         </button>
       </div>
     </div>

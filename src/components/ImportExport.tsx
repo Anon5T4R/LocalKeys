@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../api";
 import { useStore } from "../store";
+import { t } from "../lib/i18n";
 import { detectFormat, kdbxToItems, parseBitwardenJson, parseText } from "../import";
 import { exportCsv, exportJson } from "../export";
 
@@ -41,7 +42,7 @@ export function ImportExport({ onClose }: { onClose: () => void }) {
       }
       const { items } = parseText(path, content);
       if (!items.length) {
-        setMsg("Nenhum item reconhecido no arquivo.");
+        setMsg(t("ie.noItems"));
         setPhase("menu");
         return;
       }
@@ -62,7 +63,7 @@ export function ImportExport({ onClose }: { onClose: () => void }) {
       const entries = await api.importKdbx(kdbxPath, kdbxPass);
       const items = kdbxToItems(entries);
       if (!items.length) {
-        setMsg("Nenhuma entrada encontrada no .kdbx.");
+        setMsg(t("ie.noKdbx"));
         setPhase("kdbx");
         return;
       }
@@ -81,7 +82,7 @@ export function ImportExport({ onClose }: { onClose: () => void }) {
       const json = await api.importBitwardenEncrypted(bwPath, bwPass);
       const items = parseBitwardenJson(json);
       if (!items.length) {
-        setMsg("Nada reconhecido no arquivo.");
+        setMsg(t("ie.noBw"));
         setPhase("bw");
         return;
       }
@@ -102,7 +103,7 @@ export function ImportExport({ onClose }: { onClose: () => void }) {
     try {
       const content = fmt === "json" ? exportJson(vault) : exportCsv(vault);
       await api.writeTextFile(path, content);
-      showToast("Exportado em claro — proteja/apague o arquivo depois");
+      showToast(t("ie.exportedToast"));
       onClose();
     } catch (e) {
       setMsg(String(e));
@@ -115,67 +116,63 @@ export function ImportExport({ onClose }: { onClose: () => void }) {
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         {phase === "menu" && (
           <>
-            <h2>Importar / Exportar</h2>
-            <p className="muted">
-              Importe de Bitwarden (JSON), Chrome/Edge, LastPass, 1Password (CSV) ou
-              KeePass (.kdbx).
-            </p>
+            <h2>{t("ie.title")}</h2>
+            <p className="muted">{t("ie.sub")}</p>
             <button className="primary big" onClick={pickAndImport}>
-              📥 Importar de um arquivo…
+              {t("ie.importFile")}
             </button>
             <button className="big" onClick={() => setPhase("export")}>
-              📤 Exportar meu cofre…
+              {t("ie.exportVault")}
             </button>
           </>
         )}
 
         {phase === "kdbx" && (
           <>
-            <h2>Abrir KeePass (.kdbx)</h2>
-            <p className="muted">Digite a senha mestra do banco KeePass.</p>
+            <h2>{t("ie.kdbxTitle")}</h2>
+            <p className="muted">{t("ie.kdbxSub")}</p>
             <input
               type="password"
               autoFocus
-              placeholder="senha do .kdbx"
+              placeholder={t("ie.kdbxPlaceholder")}
               value={kdbxPass}
               onChange={(e) => setKdbxPass(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && importKdbx()}
             />
             <button className="primary big" onClick={importKdbx} disabled={!kdbxPass}>
-              Importar
+              {t("ie.import")}
             </button>
           </>
         )}
 
         {phase === "bw" && (
           <>
-            <h2>Importar Bitwarden (cifrado)</h2>
+            <h2>{t("ie.bwTitle")}</h2>
             <p className="warn">
-              ⚠️ <strong>Experimental:</strong> a decifragem do export cifrado do
-              Bitwarden ainda não foi testada com arquivo real. Se falhar, exporte do
-              Bitwarden como JSON <strong>não</strong>-cifrado e importe por ali.
+              {t("ie.bwWarnPre")} <strong>{t("ie.bwWarnStrong")}</strong>
+              {t("ie.bwWarnMid")} <strong>{t("ie.bwWarnNot")}</strong>
+              {t("ie.bwWarnPost")}
             </p>
             <input
               type="password"
               autoFocus
-              placeholder="senha do export"
+              placeholder={t("ie.bwPlaceholder")}
               value={bwPass}
               onChange={(e) => setBwPass(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && importBw()}
             />
             <button className="primary big" onClick={importBw} disabled={!bwPass}>
-              Importar
+              {t("ie.import")}
             </button>
           </>
         )}
 
         {phase === "export" && (
           <>
-            <h2>Exportar cofre</h2>
+            <h2>{t("ie.exportTitle")}</h2>
             <p className="warn">
-              ⚠️ O arquivo exportado fica <strong>em claro</strong> (sem senha!).
-              Qualquer um que o abrir vê todas as suas senhas. Use só para migrar e
-              apague depois.
+              {t("ie.exportWarnPre")} <strong>{t("ie.exportWarnStrong")}</strong>
+              {t("ie.exportWarnPost")}
             </p>
             <div className="radio-row">
               <label>
@@ -184,7 +181,7 @@ export function ImportExport({ onClose }: { onClose: () => void }) {
                   checked={fmt === "json"}
                   onChange={() => setFmt("json")}
                 />
-                JSON (todos os campos)
+                {t("ie.fmtJson")}
               </label>
               <label>
                 <input
@@ -192,40 +189,44 @@ export function ImportExport({ onClose }: { onClose: () => void }) {
                   checked={fmt === "csv"}
                   onChange={() => setFmt("csv")}
                 />
-                CSV (planilha)
+                {t("ie.fmtCsv")}
               </label>
             </div>
             <button className="danger big" onClick={doExport}>
-              Exportar em claro mesmo assim
+              {t("ie.exportAnyway")}
             </button>
           </>
         )}
 
         {phase === "done" && (
           <>
-            <h2>✅ Importado</h2>
+            <h2>{t("ie.done")}</h2>
             <p>
-              {doneCount} {doneCount === 1 ? "item importado" : "itens importados"}.
+              {t(doneCount === 1 ? "toast.importedOne" : "toast.importedMany", {
+                n: doneCount,
+              })}
+              .
             </p>
             <p className="warn">
-              ⚠️ O arquivo <code>{donePath.split(/[\\/]/).pop()}</code> está{" "}
-              <strong>em claro</strong>, com todas as senhas que você acabou de
-              importar. <strong>Apague-o</strong> depois de conferir que veio tudo.
+              {t("ie.doneWarnPre")} <code>{donePath.split(/[\\/]/).pop()}</code>{" "}
+              {t("ie.doneWarnMid")} <strong>{t("ie.doneWarnClear")}</strong>
+              {t("ie.doneWarnPost")} <strong>{t("ie.doneWarnDelete")}</strong>{" "}
+              {t("ie.doneWarnEnd")}
             </p>
             <button
               className="big"
               onClick={() => api.revealFile(donePath).catch(() => {})}
             >
-              📂 Abrir a pasta do arquivo
+              {t("ie.openFolder")}
             </button>
           </>
         )}
 
-        {phase === "busy" && <p>Processando…</p>}
+        {phase === "busy" && <p>{t("ie.processing")}</p>}
 
         {msg && <p className="error">{msg}</p>}
         <button className="link" onClick={onClose}>
-          Fechar
+          {t("ie.close")}
         </button>
       </div>
     </div>

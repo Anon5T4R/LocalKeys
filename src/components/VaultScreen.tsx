@@ -3,13 +3,15 @@ import { api } from "../api";
 import { useStore } from "../store";
 import {
   emptyItem,
-  KIND_LABEL,
+  kindLabel,
   MAX_ATTACHMENT_BYTES,
   type Attachment,
   type Item,
   type ItemKind,
 } from "../types";
+import { getLocale, t } from "../lib/i18n";
 import { Generator } from "./Generator";
+import { LocalePicker } from "./LocalePicker";
 import { StrengthMeter } from "./StrengthMeter";
 import { TotpDisplay } from "./TotpDisplay";
 import { ImportExport } from "./ImportExport";
@@ -90,14 +92,14 @@ export function VaultScreen() {
       <aside className="sidebar">
         <div className="sidebar-head">
           <strong title={path ?? ""}>{fileName}</strong>
-          <button className="lock-btn" onClick={() => lock()} title="Trancar (Esc)">
-            🔒 Trancar
+          <button className="lock-btn" onClick={() => lock()} title={t("vault.lockTitle")}>
+            {t("vault.lock")}
           </button>
         </div>
 
         <input
           className="search"
-          placeholder="Buscar…"
+          placeholder={t("vault.search")}
           value={search}
           autoFocus
           onChange={(e) => setSearch(e.target.value)}
@@ -106,13 +108,13 @@ export function VaultScreen() {
         <nav className="filters">
           {(
             [
-              ["all", "Todos"],
-              ["fav", "★ Favoritos"],
-              ["login", "🔑 Logins"],
-              ["note", "📝 Notas"],
-              ["card", "💳 Cartões"],
-              ["identity", "🪪 Identidades"],
-              ["trash", "🗑 Lixeira"],
+              ["all", t("vault.filterAll")],
+              ["fav", t("vault.filterFav")],
+              ["login", t("vault.filterLogin")],
+              ["note", t("vault.filterNote")],
+              ["card", t("vault.filterCard")],
+              ["identity", t("vault.filterIdentity")],
+              ["trash", t("vault.filterTrash")],
             ] as [Filter, string][]
           ).map(([f, label]) => (
             <button
@@ -131,16 +133,16 @@ export function VaultScreen() {
 
         <div className="folders">
           <div className="folders-head">
-            <span>Pastas</span>
+            <span>{t("vault.folders")}</span>
             <button onClick={() => setNewFolder(newFolder === null ? "" : null)}>
-              + pasta
+              {t("vault.addFolder")}
             </button>
           </div>
           {newFolder !== null && (
             <input
               className="folder-input"
               autoFocus
-              placeholder="nome + Enter"
+              placeholder={t("vault.folderPlaceholder")}
               value={newFolder}
               onChange={(e) => setNewFolder(e.target.value)}
               onKeyDown={(e) => {
@@ -172,7 +174,7 @@ export function VaultScreen() {
                 </button>
                 <button
                   className="folder-del"
-                  title="Apagar pasta (os itens ficam sem pasta)"
+                  title={t("vault.delFolderTitle")}
                   onClick={() => {
                     removeFolder(f.id);
                     if (folderFilter === f.id) setFolderFilter(null);
@@ -186,9 +188,9 @@ export function VaultScreen() {
         </div>
 
         <div className="new-item">
-          <span>Novo:</span>
+          <span>{t("vault.new")}</span>
           {(["login", "note", "card", "identity"] as ItemKind[]).map((k) => (
-            <button key={k} title={KIND_LABEL[k]} onClick={() => create(k)}>
+            <button key={k} title={kindLabel(k)} onClick={() => create(k)}>
               {KIND_ICON[k]}
             </button>
           ))}
@@ -202,23 +204,23 @@ export function VaultScreen() {
               onClick={() => select(i.id)}
             >
               <span className="ic">{KIND_ICON[i.kind]}</span>
-              <span className="nm">{i.name || "(sem nome)"}</span>
+              <span className="nm">{i.name || t("vault.noName")}</span>
               {i.favorite && <span className="fav">★</span>}
             </li>
           ))}
-          {visible.length === 0 && <li className="empty">Nada aqui.</li>}
+          {visible.length === 0 && <li className="empty">{t("vault.empty")}</li>}
         </ul>
 
         <div className="sidebar-foot">
           <button className="tools-btn" onClick={() => setShowReport(true)}>
-            🛡️ Relatório
+            {t("vault.report")}
           </button>
           <button className="tools-btn" onClick={() => setShowTools(true)}>
-            ⇄ Importar / Exportar
+            {t("vault.importExport")}
           </button>
           <button
             className="tools-btn"
-            title="Abrir este cofre sem digitar a master neste computador (opt-in)"
+            title={t("vault.quickTitle")}
             onClick={async () => {
               if (quickOn) {
                 await disableQuickUnlock();
@@ -229,8 +231,9 @@ export function VaultScreen() {
               }
             }}
           >
-            {quickOn ? "🔓 Rápido: on" : "🔒 Rápido: off"}
+            {quickOn ? t("vault.quickOn") : t("vault.quickOff")}
           </button>
+          <LocalePicker className="sidebar-lang" />
         </div>
       </aside>
 
@@ -239,7 +242,7 @@ export function VaultScreen() {
           <ItemEditor key={selected.id} item={selected} />
         ) : (
           <div className="placeholder">
-            <p>Selecione um item ou crie um novo.</p>
+            <p>{t("vault.placeholder")}</p>
           </div>
         )}
       </main>
@@ -341,14 +344,16 @@ function ItemEditor({ item }: { item: Item }) {
         <span className="big-ic">{KIND_ICON[draft.kind]}</span>
         <input
           className="title"
-          placeholder={`Nome do ${KIND_LABEL[draft.kind].toLowerCase()}`}
+          placeholder={t("editor.namePlaceholder", {
+            kind: kindLabel(draft.kind).toLowerCase(),
+          })}
           value={draft.name}
           onChange={(e) => setDraft({ ...draft, name: e.target.value })}
           onBlur={() => updateItem(draft)}
         />
         <button
           className={`star ${draft.favorite ? "on" : ""}`}
-          title="Favorito"
+          title={t("editor.favorite")}
           onClick={() => patch({ favorite: !draft.favorite })}
         >
           ★
@@ -360,7 +365,7 @@ function ItemEditor({ item }: { item: Item }) {
           value={draft.folderId ?? ""}
           onChange={(e) => patch({ folderId: e.target.value || null })}
         >
-          <option value="">— sem pasta —</option>
+          <option value="">{t("editor.noFolder")}</option>
           {folders.map((f) => (
             <option key={f.id} value={f.id}>
               {f.name}
@@ -371,31 +376,31 @@ function ItemEditor({ item }: { item: Item }) {
 
       {draft.kind === "login" && draft.login && (
         <>
-          <Field label="Usuário">
+          <Field label={t("editor.username")}>
             <input
               value={draft.login.username}
               onChange={(e) => setDraft({ ...draft, login: { ...draft.login!, username: e.target.value } })}
               onBlur={() => updateItem(draft)}
             />
-            <button onClick={() => copySecret(draft.login!.username, "Usuário")}>Copiar</button>
-            <button title="Digitar no campo em foco" onClick={() => autoType(draft.login!.username)}>
+            <button onClick={() => copySecret(draft.login!.username, t("editor.username"))}>{t("editor.copy")}</button>
+            <button title={t("editor.typeTitle")} onClick={() => autoType(draft.login!.username)}>
               ⌨
             </button>
           </Field>
 
-          <Field label="Senha">
+          <Field label={t("editor.password")}>
             <input
               type={showPw ? "text" : "password"}
               value={draft.login.password}
               onChange={(e) => setDraft({ ...draft, login: { ...draft.login!, password: e.target.value } })}
               onBlur={() => updateItem(draft)}
             />
-            <button onClick={() => setShowPw((v) => !v)}>{showPw ? "Ocultar" : "Ver"}</button>
-            <button onClick={() => copySecret(draft.login!.password, "Senha")}>Copiar</button>
-            <button title="Digitar no campo em foco" onClick={() => autoType(draft.login!.password)}>
+            <button onClick={() => setShowPw((v) => !v)}>{showPw ? t("editor.hide") : t("editor.show")}</button>
+            <button onClick={() => copySecret(draft.login!.password, t("editor.password"))}>{t("editor.copy")}</button>
+            <button title={t("editor.typeTitle")} onClick={() => autoType(draft.login!.password)}>
               ⌨
             </button>
-            <button onClick={() => setShowGen((v) => !v)}>Gerar</button>
+            <button onClick={() => setShowGen((v) => !v)}>{t("editor.generate")}</button>
           </Field>
           <div className="under-field">
             <StrengthMeter
@@ -413,7 +418,7 @@ function ItemEditor({ item }: { item: Item }) {
             />
           )}
 
-          <Field label="URL">
+          <Field label={t("editor.url")}>
             <input
               value={draft.login.uris[0] ?? ""}
               onChange={(e) =>
@@ -423,9 +428,9 @@ function ItemEditor({ item }: { item: Item }) {
             />
           </Field>
 
-          <Field label="TOTP (chave base32)">
+          <Field label={t("editor.totpKey")}>
             <input
-              placeholder="ex.: JBSWY3DPEHPK3PXP"
+              placeholder={t("editor.totpPlaceholder")}
               value={draft.login.totp}
               onChange={(e) => setDraft({ ...draft, login: { ...draft.login!, totp: e.target.value } })}
               onBlur={() => updateItem(draft)}
@@ -437,44 +442,44 @@ function ItemEditor({ item }: { item: Item }) {
 
       {draft.kind === "card" && draft.card && (
         <>
-          <Field label="Titular">
+          <Field label={t("editor.cardholder")}>
             <input value={draft.card.cardholder} onChange={(e) => setDraft({ ...draft, card: { ...draft.card!, cardholder: e.target.value } })} onBlur={() => updateItem(draft)} />
           </Field>
-          <Field label="Número">
+          <Field label={t("editor.number")}>
             <input value={draft.card.number} onChange={(e) => setDraft({ ...draft, card: { ...draft.card!, number: e.target.value } })} onBlur={() => updateItem(draft)} />
-            <button onClick={() => copySecret(draft.card!.number, "Número")}>Copiar</button>
+            <button onClick={() => copySecret(draft.card!.number, t("editor.number"))}>{t("editor.copy")}</button>
           </Field>
-          <Field label="Validade">
-            <input placeholder="MM/AA" value={draft.card.exp} onChange={(e) => setDraft({ ...draft, card: { ...draft.card!, exp: e.target.value } })} onBlur={() => updateItem(draft)} />
+          <Field label={t("editor.exp")}>
+            <input placeholder={t("editor.expPlaceholder")} value={draft.card.exp} onChange={(e) => setDraft({ ...draft, card: { ...draft.card!, exp: e.target.value } })} onBlur={() => updateItem(draft)} />
           </Field>
-          <Field label="CVV">
+          <Field label={t("editor.cvv")}>
             <input value={draft.card.code} onChange={(e) => setDraft({ ...draft, card: { ...draft.card!, code: e.target.value } })} onBlur={() => updateItem(draft)} />
-            <button onClick={() => copySecret(draft.card!.code, "CVV")}>Copiar</button>
+            <button onClick={() => copySecret(draft.card!.code, t("editor.cvv"))}>{t("editor.copy")}</button>
           </Field>
         </>
       )}
 
       {draft.kind === "identity" && draft.identity && (
         <>
-          <Field label="Nome">
+          <Field label={t("editor.firstName")}>
             <input value={draft.identity.firstName} onChange={(e) => setDraft({ ...draft, identity: { ...draft.identity!, firstName: e.target.value } })} onBlur={() => updateItem(draft)} />
           </Field>
-          <Field label="Sobrenome">
+          <Field label={t("editor.lastName")}>
             <input value={draft.identity.lastName} onChange={(e) => setDraft({ ...draft, identity: { ...draft.identity!, lastName: e.target.value } })} onBlur={() => updateItem(draft)} />
           </Field>
-          <Field label="E-mail">
+          <Field label={t("editor.email")}>
             <input value={draft.identity.email} onChange={(e) => setDraft({ ...draft, identity: { ...draft.identity!, email: e.target.value } })} onBlur={() => updateItem(draft)} />
           </Field>
-          <Field label="Telefone">
+          <Field label={t("editor.phone")}>
             <input value={draft.identity.phone} onChange={(e) => setDraft({ ...draft, identity: { ...draft.identity!, phone: e.target.value } })} onBlur={() => updateItem(draft)} />
           </Field>
-          <Field label="Endereço">
+          <Field label={t("editor.address")}>
             <input value={draft.identity.address} onChange={(e) => setDraft({ ...draft, identity: { ...draft.identity!, address: e.target.value } })} onBlur={() => updateItem(draft)} />
           </Field>
         </>
       )}
 
-      <Field label="Notas">
+      <Field label={t("editor.notes")}>
         <textarea
           value={draft.notes}
           rows={draft.kind === "note" ? 12 : 4}
@@ -486,14 +491,14 @@ function ItemEditor({ item }: { item: Item }) {
       {/* Campos personalizados */}
       <div className="section">
         <div className="section-head">
-          <span>Campos personalizados</span>
-          <button onClick={addField}>+ Adicionar</button>
+          <span>{t("editor.customFields")}</span>
+          <button onClick={addField}>{t("editor.add")}</button>
         </div>
         {fields.map((f) => (
           <div key={f.id} className="cf-row">
             <input
               className="cf-name"
-              placeholder="nome"
+              placeholder={t("editor.cfName")}
               value={f.name}
               onChange={(e) => setField(f.id, { name: e.target.value })}
               onBlur={commitFields}
@@ -501,18 +506,18 @@ function ItemEditor({ item }: { item: Item }) {
             <input
               className="cf-value"
               type={f.hidden ? "password" : "text"}
-              placeholder="valor"
+              placeholder={t("editor.cfValue")}
               value={f.value}
               onChange={(e) => setField(f.id, { value: e.target.value })}
               onBlur={commitFields}
             />
-            <button title={f.hidden ? "Mostrar" : "Ocultar"} onClick={() => toggleFieldHidden(f.id)}>
+            <button title={f.hidden ? t("editor.showTitle") : t("editor.hideTitle")} onClick={() => toggleFieldHidden(f.id)}>
               {f.hidden ? "🙈" : "👁"}
             </button>
-            <button title="Copiar" onClick={() => copySecret(f.value, f.name || "Campo")}>
+            <button title={t("editor.copyTitle")} onClick={() => copySecret(f.value, f.name || t("editor.fieldLabel"))}>
               ⧉
             </button>
-            <button title="Remover" onClick={() => removeField(f.id)}>
+            <button title={t("editor.removeTitle")} onClick={() => removeField(f.id)}>
               ✕
             </button>
           </div>
@@ -522,15 +527,15 @@ function ItemEditor({ item }: { item: Item }) {
       {/* Anexos */}
       <div className="section">
         <div className="section-head">
-          <span>Anexos <span className="muted">(máx. 1 MB, cifrados no cofre)</span></span>
-          <button onClick={addAttachment}>+ Anexar</button>
+          <span>{t("editor.attachments")} <span className="muted">{t("editor.attachHint")}</span></span>
+          <button onClick={addAttachment}>{t("editor.attach")}</button>
         </div>
         {attachments.map((a) => (
           <div key={a.id} className="att-row">
             <span className="att-name">📎 {a.name}</span>
             <span className="att-size">{Math.max(1, Math.round(a.size / 1024))} KB</span>
-            <button onClick={() => saveAttachment(a)}>Salvar</button>
-            <button title="Remover" onClick={() => removeAttachment(a.id)}>
+            <button onClick={() => saveAttachment(a)}>{t("editor.save")}</button>
+            <button title={t("editor.removeTitle")} onClick={() => removeAttachment(a.id)}>
               ✕
             </button>
           </div>
@@ -541,14 +546,14 @@ function ItemEditor({ item }: { item: Item }) {
       {draft.kind === "login" && history.length > 0 && (
         <div className="section">
           <button className="section-toggle" onClick={() => setShowHistory((v) => !v)}>
-            {showHistory ? "▾" : "▸"} Histórico de senhas ({history.length})
+            {showHistory ? "▾" : "▸"} {t("editor.history", { n: history.length })}
           </button>
           {showHistory &&
             history.map((h, i) => (
               <div key={i} className="hist-row">
                 <code>{h.password}</code>
-                <span className="muted">{new Date(h.at).toLocaleDateString("pt-BR")}</span>
-                <button onClick={() => copySecret(h.password, "Senha antiga")}>Copiar</button>
+                <span className="muted">{new Date(h.at).toLocaleDateString(getLocale())}</span>
+                <button onClick={() => copySecret(h.password, t("editor.oldPassword"))}>{t("editor.copy")}</button>
               </div>
             ))}
         </div>
@@ -557,19 +562,19 @@ function ItemEditor({ item }: { item: Item }) {
       <div className="editor-foot">
         {inTrash ? (
           <>
-            <button onClick={() => restoreItem(draft.id)}>Restaurar</button>
+            <button onClick={() => restoreItem(draft.id)}>{t("editor.restore")}</button>
             <button
               className="danger"
               onClick={() => {
-                if (confirm("Excluir para sempre? Não dá para desfazer.")) deleteForever(draft.id);
+                if (confirm(t("editor.deleteConfirm"))) deleteForever(draft.id);
               }}
             >
-              Excluir para sempre
+              {t("editor.deleteForever")}
             </button>
           </>
         ) : (
           <button className="danger" onClick={() => trashItem(draft.id)}>
-            🗑 Mover para a lixeira
+            {t("editor.toTrash")}
           </button>
         )}
       </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type PasswordOptions, type PassphraseOptions } from "../api";
+import { t } from "../lib/i18n";
 
 type Mode = "password" | "passphrase";
 
@@ -44,25 +45,25 @@ export function Generator({ onUse }: { onUse?: (value: string) => void }) {
           className={mode === "password" ? "active" : ""}
           onClick={() => setMode("password")}
         >
-          Senha
+          {t("gen.password")}
         </button>
         <button
           className={mode === "passphrase" ? "active" : ""}
           onClick={() => setMode("passphrase")}
         >
-          Frase-senha
+          {t("gen.passphrase")}
         </button>
       </div>
 
       <div className="gen-output">
         <code>{value}</code>
         <div className="gen-actions">
-          <button title="Gerar outra" onClick={regen}>
+          <button title={t("gen.regenTitle")} onClick={regen}>
             ↻
           </button>
           {onUse && (
             <button className="primary" onClick={() => onUse(value)}>
-              Usar
+              {t("gen.use")}
             </button>
           )}
         </div>
@@ -71,7 +72,7 @@ export function Generator({ onUse }: { onUse?: (value: string) => void }) {
       {mode === "password" ? (
         <div className="gen-opts">
           <label className="range">
-            Comprimento: {pw.length}
+            {t("gen.length", { n: pw.length })}
             <input
               type="range"
               min={8}
@@ -116,7 +117,7 @@ export function Generator({ onUse }: { onUse?: (value: string) => void }) {
       ) : (
         <div className="gen-opts">
           <label className="range">
-            Palavras: {pp.words}
+            {t("gen.words", { n: pp.words })}
             <input
               type="range"
               min={3}
@@ -131,7 +132,7 @@ export function Generator({ onUse }: { onUse?: (value: string) => void }) {
               checked={pp.capitalize}
               onChange={(e) => setPp({ ...pp, capitalize: e.target.checked })}
             />
-            Maiúsculas
+            {t("gen.capitalize")}
           </label>
           <label>
             <input
@@ -139,7 +140,7 @@ export function Generator({ onUse }: { onUse?: (value: string) => void }) {
               checked={pp.includeNumber}
               onChange={(e) => setPp({ ...pp, includeNumber: e.target.checked })}
             />
-            Número
+            {t("gen.number")}
           </label>
         </div>
       )}

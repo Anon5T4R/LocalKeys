@@ -1,6 +1,8 @@
 // Schema do vault (dentro do blob cifrado). O back-end trata isto como bytes
 // opacos; a estrutura vive aqui no front. `version` permite migrar depois.
 
+import { t, type MessageKey } from "./lib/i18n";
+
 export type ItemKind = "login" | "note" | "card" | "identity";
 
 export interface Vault {
@@ -84,6 +86,19 @@ export const KIND_LABEL: Record<ItemKind, string> = {
   card: "Cartão",
   identity: "Identidade",
 };
+
+// Rótulo localizado do tipo de item (usado na UI). O KIND_LABEL acima fica como
+// mapa fixo pt (fallback / referência de teste).
+const KIND_LABEL_KEY: Record<ItemKind, MessageKey> = {
+  login: "kind.login",
+  note: "kind.note",
+  card: "kind.card",
+  identity: "kind.identity",
+};
+
+export function kindLabel(kind: ItemKind): string {
+  return t(KIND_LABEL_KEY[kind]);
+}
 
 export function emptyItem(kind: ItemKind): Item {
   const now = Date.now();

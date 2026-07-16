@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import { getLastVault } from "../prefs";
 import { useStore } from "../store";
+import { LocalePicker } from "./LocalePicker";
+import { t } from "../lib/i18n";
 import { StrengthMeter } from "./StrengthMeter";
 
 export function UnlockScreen({ startupFile }: { startupFile: string | null }) {
@@ -30,7 +32,7 @@ export function UnlockScreen({ startupFile }: { startupFile: string | null }) {
     clearError();
     if (tab === "create") {
       if (password !== confirm) {
-        useStore.setState({ error: "as senhas não coincidem" });
+        useStore.setState({ error: t("unlock.mismatch") });
         return;
       }
       await createVault(password);
@@ -47,7 +49,7 @@ export function UnlockScreen({ startupFile }: { startupFile: string | null }) {
         <div className="brand">
           <div className="brand-mark">🔐</div>
           <h1>LocalKeys</h1>
-          <p className="tagline">Seu cofre de senhas — 100% local, sem nuvem.</p>
+          <p className="tagline">{t("unlock.tagline")}</p>
         </div>
 
         <div className="tabs">
@@ -55,31 +57,31 @@ export function UnlockScreen({ startupFile }: { startupFile: string | null }) {
             className={tab === "open" ? "active" : ""}
             onClick={() => setTab("open")}
           >
-            Abrir cofre
+            {t("unlock.tabOpen")}
           </button>
           <button
             className={tab === "create" ? "active" : ""}
             onClick={() => setTab("create")}
           >
-            Criar cofre
+            {t("unlock.tabCreate")}
           </button>
         </div>
 
         {startupFile && tab === "open" && (
           <p className="hint">
-            Abrindo: <code>{startupFile}</code>
+            {t("unlock.opening")} <code>{startupFile}</code>
           </p>
         )}
 
         <form onSubmit={submit}>
           <label>
-            Master password
+            {t("unlock.master")}
             <input
               type="password"
               autoFocus
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="sua senha mestra"
+              placeholder={t("unlock.masterPlaceholder")}
             />
           </label>
 
@@ -87,18 +89,15 @@ export function UnlockScreen({ startupFile }: { startupFile: string | null }) {
             <>
               <StrengthMeter password={password} />
               <label>
-                Confirmar
+                {t("unlock.confirm")}
                 <input
                   type="password"
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
-                  placeholder="repita a senha mestra"
+                  placeholder={t("unlock.confirmPlaceholder")}
                 />
               </label>
-              <p className="warn">
-                ⚠️ Não há recuperação. Se você esquecer esta senha, o cofre é
-                irrecuperável — é o que mantém ele seguro.
-              </p>
+              <p className="warn">{t("unlock.warn")}</p>
             </>
           )}
 
@@ -106,10 +105,10 @@ export function UnlockScreen({ startupFile }: { startupFile: string | null }) {
 
           <button type="submit" className="primary big" disabled={busy || !password}>
             {busy
-              ? "Processando…"
+              ? t("unlock.processing")
               : tab === "create"
-                ? "Criar e destrancar"
-                : "Destrancar"}
+                ? t("unlock.createBtn")
+                : t("unlock.openBtn")}
           </button>
         </form>
 
@@ -119,9 +118,11 @@ export function UnlockScreen({ startupFile }: { startupFile: string | null }) {
             disabled={busy}
             onClick={() => quickUnlock()}
           >
-            🔓 Desbloqueio rápido (sem senha)
+            {t("unlock.quick")}
           </button>
         )}
+
+        <LocalePicker className="unlock-lang" />
       </div>
     </div>
   );

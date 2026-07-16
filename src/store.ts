@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { api } from "./api";
 import { getLastVault, setLastVault } from "./prefs";
+import { t } from "./lib/i18n";
 import type { Item, Vault } from "./types";
 
 const CLIPBOARD_CLEAR_MS = 30_000;
@@ -113,7 +114,7 @@ export const useStore = create<AppState>((set, get) => ({
     if (!path) return;
     try {
       await api.enableQuickUnlock(path);
-      get().showToast("Desbloqueio rápido ativado neste computador");
+      get().showToast(t("toast.quickOn"));
     } catch (e) {
       set({ error: String(e) });
     }
@@ -124,7 +125,7 @@ export const useStore = create<AppState>((set, get) => ({
     if (!path) return;
     try {
       await api.disableQuickUnlock(path);
-      get().showToast("Desbloqueio rápido desativado");
+      get().showToast(t("toast.quickOff"));
     } catch (e) {
       set({ error: String(e) });
     }
@@ -132,7 +133,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   autoType: async (text) => {
     if (!text) return;
-    get().showToast("Digitando em 3 s — clique no campo de destino");
+    get().showToast(t("toast.typing"));
     await new Promise((r) => setTimeout(r, 3000));
     try {
       await api.typeText(text);
@@ -168,7 +169,11 @@ export const useStore = create<AppState>((set, get) => ({
     const next = { ...vault, items: [...vault.items, ...incoming] };
     set({ vault: next });
     await persist(path, next);
-    get().showToast(`${incoming.length} ${incoming.length === 1 ? "item importado" : "itens importados"}`);
+    get().showToast(
+      t(incoming.length === 1 ? "toast.importedOne" : "toast.importedMany", {
+        n: incoming.length,
+      }),
+    );
     return incoming.length;
   },
 
@@ -257,15 +262,16 @@ export const useStore = create<AppState>((set, get) => ({
   copySecret: async (text, label) => {
     // No Windows, o back-end copia excluindo do histórico (Win+V)/nuvem e limpa
     // em 30 s. Nas outras plataformas cai no clipboard do navegador.
+    const lbl = label ?? t("toast.copiedDefault");
     try {
       await api.copySecretNative(text);
-      get().showToast(`${label ?? "Copiado"} — fora do histórico, limpa em 30 s`);
+      get().showToast(t("toast.copiedNoHist", { label: lbl }));
       return;
     } catch {
       /* fallback abaixo */
     }
     await navigator.clipboard.writeText(text);
-    get().showToast(`${label ?? "Copiado"} — limpa em 30 s`);
+    get().showToast(t("toast.copiedClipboard", { label: lbl }));
     // Limpa só se o clipboard ainda contém o que copiamos (não pisa em algo novo).
     window.setTimeout(async () => {
       try {

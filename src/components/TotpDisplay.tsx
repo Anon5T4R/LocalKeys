@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { useStore } from "../store";
+import { t } from "../lib/i18n";
 
 /** Mostra o código TOTP atual de uma chave base32, com contagem regressiva. */
 export function TotpDisplay({ secret }: { secret: string }) {
@@ -43,18 +44,18 @@ export function TotpDisplay({ secret }: { secret: string }) {
   }, [secret, period]);
 
   if (!secret.trim()) return null;
-  if (error) return <div className="totp err">chave TOTP inválida (base32)</div>;
+  if (error) return <div className="totp err">{t("totp.invalid")}</div>;
 
   const pct = Math.max(0, Math.min(100, (remaining / period) * 100));
   const low = remaining <= 5;
 
   return (
     <div className="totp">
-      <span className="totp-label">Código TOTP</span>
+      <span className="totp-label">{t("totp.label")}</span>
       <code
         className="totp-code"
-        title="Copiar código"
-        onClick={() => copySecret(code, "Código")}
+        title={t("totp.copyTitle")}
+        onClick={() => copySecret(code, t("editor.code"))}
       >
         {code.slice(0, 3)} {code.slice(3)}
       </code>
