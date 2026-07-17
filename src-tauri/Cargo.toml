@@ -1,6 +1,6 @@
 [package]
 name = "localkeys"
-version = "0.7.1"
+version = "0.7.2"
 description = "LocalKeys — gerenciador de senhas 100% local e offline"
 authors = ["Taylor"]
 edition = "2021"
