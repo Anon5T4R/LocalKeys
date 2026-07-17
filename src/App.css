@@ -1,14 +1,19 @@
+/* Superfícies suavizadas: o fundo não pode ser a coisa mais forte da tela.
+   Branco puro tem contraste máximo contra tudo e rouba o foco do accent —
+   por isso o painel é off-white TINGIDO com o matiz do próprio --bg (L* ~98)
+   e o --bg desce ~3 L*. Só o L* muda; a/b (o matiz) ficam intactos, então a
+   escada bg < panel-2 < panel e a identidade do tema seguem iguais. */
 :root {
-  --bg: #f4f5f7;
-  --panel: #ffffff;
-  --panel-2: #fafbfc;
+  --bg: #ebecee;
+  --panel: #f8f9fb;
+  --panel-2: #f1f2f3;
   --text: #1a1d21;
   --muted: #6b7280;
-  --border: #e2e5ea;
+  --border: #d9dce1;
   --accent: #4338ca;
   --accent-text: #ffffff;
   --danger: #dc2626;
-  --seg-off: #d7dbe2;
+  --seg-off: #ced2d9;
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 8px 24px rgba(0, 0, 0, 0.06);
   color-scheme: light dark;
 }
@@ -17,14 +22,15 @@
    explícito (light/dark/nomeado) põe o atributo e ganha deste bloco. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
-    --bg: #0f1115;
-    --panel: #181b21;
-    --panel-2: #1f232b;
+    /* Espelha o bloco [data-theme="dark"]: quase-preto sobe ~4.5 L* mantendo matiz. */
+    --bg: #191b1e;
+    --panel: #21242a;
+    --panel-2: #282c35;
     --text: #e6e8ec;
     --muted: #9aa2ad;
-    --border: #2a2f38;
+    --border: #343942;
     --accent: #6366f1;
-    --seg-off: #2a2f38;
+    --seg-off: #343942;
     --shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
   }
 }
@@ -34,27 +40,29 @@
   color-scheme: light;
 }
 
+/* Escuro: o quase-preto (L* 5) sobe ~4.5 L* mantendo o matiz — mesma lógica
+   dos nomeados escuros no §1 (punkprincess/darkblue subiram ~4.5). */
 :root[data-theme="dark"] {
-  --bg: #0f1115;
-  --panel: #181b21;
-  --panel-2: #1f232b;
+  --bg: #191b1e;
+  --panel: #21242a;
+  --panel-2: #282c35;
   --text: #e6e8ec;
   --muted: #9aa2ad;
-  --border: #2a2f38;
+  --border: #343942;
   --accent: #6366f1;
-  --seg-off: #2a2f38;
+  --seg-off: #343942;
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
   color-scheme: dark;
 }
 
 /* ---------- Temas nomeados (paletas fixas, sobrepõem o accent) ---------- */
 :root[data-theme="nature"] {
-  --bg: #f5f7f2;
-  --panel: #ffffff;
-  --panel-2: #eef2ea;
+  --bg: #eef1e9;
+  --panel: #f8faf5;
+  --panel-2: #e4eade;
   --text: #2e3a2e;
-  --muted: #6f7d6f;
-  --border: #e2e8dd;
+  --muted: #697669;
+  --border: #dbe3d4;
   --accent: #7a9e7e;
   --accent-text: #1e2a1e;
   --danger: #c0492f;
@@ -64,12 +72,12 @@
 }
 
 :root[data-theme="darkblue"] {
-  --bg: #0d1520;
-  --panel: #131f30;
-  --panel-2: #1a2942;
+  --bg: #16202e;
+  --panel: #1d2a3c;
+  --panel-2: #26374e;
   --text: #e2e8f0;
   --muted: #8595ad;
-  --border: #223049;
+  --border: #2d3f59;
   --accent: #3b82f6;
   --accent-text: #ffffff;
   --danger: #f87171;
@@ -79,12 +87,12 @@
 }
 
 :root[data-theme="calmgreen"] {
-  --bg: #f2f5f1;
-  --panel: #ffffff;
-  --panel-2: #e9efe7;
+  --bg: #eaf0e9;
+  --panel: #f7faf6;
+  --panel-2: #dfe8dd;
   --text: #24302a;
-  --muted: #6a7a6f;
-  --border: #dde6dc;
+  --muted: #67776c;
+  --border: #d5e0d3;
   --accent: #4f7d5e;
   --accent-text: #ffffff;
   --danger: #c0492f;
@@ -94,12 +102,12 @@
 }
 
 :root[data-theme="pastelpink"] {
-  --bg: #fdf4f7;
-  --panel: #ffffff;
-  --panel-2: #f9eaf0;
+  --bg: #f8ebf0;
+  --panel: #fdf6f9;
+  --panel-2: #f2dde6;
   --text: #3a2a30;
-  --muted: #8a7580;
-  --border: #f2dfe7;
+  --muted: #806d77;
+  --border: #ecd3de;
   --accent: #e8799f;
   --accent-text: #3a2028;
   --danger: #d84a6b;
@@ -109,12 +117,12 @@
 }
 
 :root[data-theme="punkprincess"] {
-  --bg: #120a1a;
-  --panel: #1a0f26;
-  --panel-2: #241533;
+  --bg: #1c1228;
+  --panel: #251733;
+  --panel-2: #32204a;
   --text: #f0e6ff;
   --muted: #9a86b5;
-  --border: #2c1c3d;
+  --border: #3a2850;
   --accent: #ff2d95;
   --accent-text: #12061a;
   --danger: #ff5470;
