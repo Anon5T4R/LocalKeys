@@ -3,6 +3,7 @@ import { api } from "../api";
 import { getLastVault } from "../prefs";
 import { useStore } from "../store";
 import { LocalePicker } from "./LocalePicker";
+import { ThemePicker } from "./ThemePicker";
 import { t } from "../lib/i18n";
 import { StrengthMeter } from "./StrengthMeter";
 
@@ -123,6 +124,7 @@ export function UnlockScreen({ startupFile }: { startupFile: string | null }) {
         )}
 
         <LocalePicker className="unlock-lang" />
+        <ThemePicker className="unlock-lang" />
       </div>
     </div>
   );

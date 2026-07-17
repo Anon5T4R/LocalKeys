@@ -13,8 +13,10 @@
   color-scheme: light dark;
 }
 
+/* Tema "auto": sem [data-theme] no <html>, seguimos o sistema. Um tema
+   explícito (light/dark/nomeado) põe o atributo e ganha deste bloco. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme]) {
     --bg: #0f1115;
     --panel: #181b21;
     --panel-2: #1f232b;
@@ -25,6 +27,100 @@
     --seg-off: #2a2f38;
     --shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
   }
+}
+
+/* light = os defaults do :root; só fixamos o color-scheme. */
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0f1115;
+  --panel: #181b21;
+  --panel-2: #1f232b;
+  --text: #e6e8ec;
+  --muted: #9aa2ad;
+  --border: #2a2f38;
+  --accent: #6366f1;
+  --seg-off: #2a2f38;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
+  color-scheme: dark;
+}
+
+/* ---------- Temas nomeados (paletas fixas, sobrepõem o accent) ---------- */
+:root[data-theme="nature"] {
+  --bg: #f5f7f2;
+  --panel: #ffffff;
+  --panel-2: #eef2ea;
+  --text: #2e3a2e;
+  --muted: #6f7d6f;
+  --border: #e2e8dd;
+  --accent: #7a9e7e;
+  --accent-text: #1e2a1e;
+  --danger: #c0492f;
+  --seg-off: #d5ddce;
+  --shadow: 0 10px 30px rgba(60, 70, 60, 0.14);
+  color-scheme: light;
+}
+
+:root[data-theme="darkblue"] {
+  --bg: #0d1520;
+  --panel: #131f30;
+  --panel-2: #1a2942;
+  --text: #e2e8f0;
+  --muted: #8595ad;
+  --border: #223049;
+  --accent: #3b82f6;
+  --accent-text: #ffffff;
+  --danger: #f87171;
+  --seg-off: #223049;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+  color-scheme: dark;
+}
+
+:root[data-theme="calmgreen"] {
+  --bg: #f2f5f1;
+  --panel: #ffffff;
+  --panel-2: #e9efe7;
+  --text: #24302a;
+  --muted: #6a7a6f;
+  --border: #dde6dc;
+  --accent: #4f7d5e;
+  --accent-text: #ffffff;
+  --danger: #c0492f;
+  --seg-off: #cfdbcd;
+  --shadow: 0 10px 30px rgba(60, 70, 60, 0.14);
+  color-scheme: light;
+}
+
+:root[data-theme="pastelpink"] {
+  --bg: #fdf4f7;
+  --panel: #ffffff;
+  --panel-2: #f9eaf0;
+  --text: #3a2a30;
+  --muted: #8a7580;
+  --border: #f2dfe7;
+  --accent: #e8799f;
+  --accent-text: #3a2028;
+  --danger: #d84a6b;
+  --seg-off: #edc9d9;
+  --shadow: 0 10px 30px rgba(60, 70, 60, 0.14);
+  color-scheme: light;
+}
+
+:root[data-theme="punkprincess"] {
+  --bg: #120a1a;
+  --panel: #1a0f26;
+  --panel-2: #241533;
+  --text: #f0e6ff;
+  --muted: #9a86b5;
+  --border: #2c1c3d;
+  --accent: #ff2d95;
+  --accent-text: #12061a;
+  --danger: #ff5470;
+  --seg-off: #2c1c3d;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+  color-scheme: dark;
 }
 
 * {

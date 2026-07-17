@@ -12,6 +12,7 @@ import {
 import { getLocale, t } from "../lib/i18n";
 import { Generator } from "./Generator";
 import { LocalePicker } from "./LocalePicker";
+import { ThemePicker } from "./ThemePicker";
 import { StrengthMeter } from "./StrengthMeter";
 import { TotpDisplay } from "./TotpDisplay";
 import { ImportExport } from "./ImportExport";
@@ -234,6 +235,7 @@ export function VaultScreen() {
             {quickOn ? t("vault.quickOn") : t("vault.quickOff")}
           </button>
           <LocalePicker className="sidebar-lang" />
+          <ThemePicker className="sidebar-lang" />
         </div>
       </aside>
 

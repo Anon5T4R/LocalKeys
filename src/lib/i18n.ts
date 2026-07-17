@@ -204,6 +204,17 @@ const pt = {
 
   // Idioma
   "lang.title": "Idioma",
+
+  // Tema
+  "theme.title": "Tema",
+  "theme.auto": "Automático",
+  "theme.light": "Claro",
+  "theme.dark": "Escuro",
+  "theme.nature": "Natureza",
+  "theme.darkblue": "Azul escuro",
+  "theme.calmgreen": "Verde calmo",
+  "theme.pastelpink": "Rosa pastel",
+  "theme.punkprincess": "PunkPrincess",
 } as const;
 
 export type MessageKey = keyof typeof pt;
@@ -379,6 +390,16 @@ const en: Record<MessageKey, string> = {
   "toast.importedMany": "{n} items imported",
 
   "lang.title": "Language",
+
+  "theme.title": "Theme",
+  "theme.auto": "Automatic",
+  "theme.light": "Light",
+  "theme.dark": "Dark",
+  "theme.nature": "Nature",
+  "theme.darkblue": "Dark blue",
+  "theme.calmgreen": "Calm green",
+  "theme.pastelpink": "Pastel pink",
+  "theme.punkprincess": "PunkPrincess",
 };
 
 const es: Record<MessageKey, string> = {
@@ -552,6 +573,16 @@ const es: Record<MessageKey, string> = {
   "toast.importedMany": "{n} elementos importados",
 
   "lang.title": "Idioma",
+
+  "theme.title": "Tema",
+  "theme.auto": "Automático",
+  "theme.light": "Claro",
+  "theme.dark": "Oscuro",
+  "theme.nature": "Naturaleza",
+  "theme.darkblue": "Azul oscuro",
+  "theme.calmgreen": "Verde tranquilo",
+  "theme.pastelpink": "Rosa pastel",
+  "theme.punkprincess": "PunkPrincess",
 };
 
 const DICTS: Record<Locale, Record<MessageKey, string>> = { pt, en, es };
