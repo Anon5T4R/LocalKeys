@@ -45,6 +45,20 @@ jobs:
       - name: Frontend testes (vitest)
         run: npm test
 
+      - name: Construir o bridge (ponte com o navegador)
+        working-directory: bridge
+        run: cargo build --locked
+
+      - name: Instalar o bridge para o cargo test (externalBin)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p src-tauri/binaries
+          if [ "$RUNNER_OS" = "Windows" ]; then EXT=".exe"; else EXT=""; fi
+          HOST=$(rustc -vV | sed -n 's/^host: //p')
+          cp "bridge/target/debug/localkeys-bridge$EXT" \
+             "src-tauri/binaries/localkeys-bridge-$HOST$EXT"
+
       - name: Rust testes (cripto + gerador)
         working-directory: src-tauri
         run: cargo test --locked
@@ -70,6 +84,18 @@ jobs:
         run: npm ci
       - name: Frontend build
         run: npm run build
+      - name: Construir o bridge (ponte com o navegador)
+        working-directory: bridge
+        run: cargo build --locked
+      - name: Instalar o bridge para o cargo test (externalBin)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p src-tauri/binaries
+          if [ "$RUNNER_OS" = "Windows" ]; then EXT=".exe"; else EXT=""; fi
+          HOST=$(rustc -vV | sed -n 's/^host: //p')
+          cp "bridge/target/debug/localkeys-bridge$EXT" \
+             "src-tauri/binaries/localkeys-bridge-$HOST$EXT"
       - name: Rust testes (Windows)
         working-directory: src-tauri
         run: cargo test --locked
