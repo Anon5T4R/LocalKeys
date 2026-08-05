@@ -7,6 +7,7 @@
   --accent-2: #3a6fd8;
   --danger: #e5484d;
   --ok: #46b469;
+  --warn: #d9a53e;
   --border: #2a2e38;
 }
 
@@ -17,14 +18,15 @@
 }
 
 body {
-  width: 340px;
-  max-height: 480px;
+  width: 360px;
+  max-height: 520px;
   font-family: "Segoe UI", system-ui, sans-serif;
   font-size: 13px;
   background: var(--bg);
   color: var(--fg);
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
 }
 
 .hidden {
@@ -56,7 +58,7 @@ body {
 .status {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .dot {
@@ -74,19 +76,43 @@ body {
   background: none;
   border: none;
   color: var(--muted);
-  font-size: 15px;
+  font-size: 14px;
   cursor: pointer;
-  padding: 2px 4px;
+  padding: 2px 5px;
 }
 
 .ghost:hover {
   color: var(--fg);
 }
 
+/* ── banner de origem (live / autônomo / offline) ─────────────────────────── */
+.banner {
+  padding: 6px 12px;
+  font-size: 11px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.banner .lbl {
+  color: var(--ok);
+  font-weight: 600;
+}
+
+.banner .lbl.standalone {
+  color: var(--warn);
+}
+
+.banner .lbl.off {
+  color: var(--danger);
+}
+
 /* ── conteúdo ────────────────────────────────────────────────────────────── */
 section {
   padding: 10px 12px;
-  overflow-y: auto;
 }
 
 .hint {
@@ -120,7 +146,8 @@ input:focus {
   border-color: var(--accent);
 }
 
-#unlock-form input {
+#unlock-form input,
+#standalone-form input {
   margin-bottom: 8px;
 }
 
@@ -140,6 +167,114 @@ input:focus {
   background: var(--accent-2);
 }
 
+.btn {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--fg);
+  font-size: 11px;
+  padding: 4px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn:hover {
+  border-color: var(--accent);
+}
+
+.btn.wide {
+  width: 100%;
+  padding: 8px;
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+.btn.danger {
+  color: var(--danger);
+  border-color: var(--border);
+}
+
+.btn.danger:hover {
+  border-color: var(--danger);
+}
+
+.btn.ok {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 6px 0;
+}
+
+/* ── card de sugestão do site atual ───────────────────────────────────────── */
+#suggestion {
+  margin-bottom: 8px;
+}
+
+.suggest-head {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.suggest-head.empty {
+  padding: 8px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+}
+
+.card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  margin-bottom: 6px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.card .info {
+  flex: 1;
+  min-width: 0;
+}
+
+.card .name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card .meta {
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: #fff;
+  flex: none;
+}
+
 /* ── lista ───────────────────────────────────────────────────────────────── */
 #search {
   margin-bottom: 8px;
@@ -152,13 +287,19 @@ input:focus {
 .item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   padding: 8px 4px;
   border-bottom: 1px solid var(--border);
 }
 
 .item:last-child {
   border-bottom: none;
+}
+
+.item .avatar {
+  width: 26px;
+  height: 26px;
+  font-size: 12px;
 }
 
 .item .info {
@@ -190,25 +331,15 @@ input:focus {
   white-space: nowrap;
 }
 
-.item .actions {
+.actions {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.btn {
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  color: var(--fg);
+.card .actions .btn {
   font-size: 11px;
-  padding: 3px 8px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.btn:hover {
-  border-color: var(--accent);
+  padding: 2px 7px;
 }
 
 .btn.fill {
@@ -216,15 +347,27 @@ input:focus {
   font-weight: 600;
 }
 
-.btn.ok {
-  border-color: var(--ok);
-  color: var(--ok);
-}
-
-/* ── rodapé ──────────────────────────────────────────────────────────────── */
+/* ── rodapé / painel de opções ───────────────────────────────────────────── */
 footer {
   padding: 8px 12px;
   border-top: 1px solid var(--border);
   background: var(--bg2);
   margin-top: auto;
+}
+
+#settings-panel {
+  border-top: 1px solid var(--border);
+  background: var(--bg2);
+}
+
+#settings-panel .hint {
+  margin-bottom: 6px;
+}
+
+#cache-status {
+  font-size: 11px;
+}
+
+#panel-master {
+  margin-top: 4px;
 }

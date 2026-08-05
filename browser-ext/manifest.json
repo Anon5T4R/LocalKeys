@@ -1,10 +1,13 @@
 {
   "manifest_version": 3,
   "name": "LocalKeys",
-  "version": "0.1.0",
-  "description": "Preenche usuário/senha e códigos TOTP direto do seu cofre LocalKeys — 100% local, offline.",
-  "permissions": ["nativeMessaging", "tabs", "activeTab", "clipboardWrite"],
+  "version": "0.2.0",
+  "description": "Preenche usuário/senha e códigos TOTP do seu cofre LocalKeys. Importa do app e segue funcionando em modo autônomo, 100% local e offline.",
+  "permissions": ["nativeMessaging", "tabs", "activeTab", "clipboardWrite", "storage"],
   "host_permissions": ["<all_urls>"],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
   "background": {
     "service_worker": "background.js"
   },

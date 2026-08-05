@@ -12,18 +12,19 @@
         <span>LocalKeys</span>
       </div>
       <div class="status">
+        <button id="sync-btn" class="ghost" title="Sincronizar com o app" hidden>&#8635;</button>
+        <button id="settings-btn" class="ghost" title="Opções" hidden>&#9881;</button>
         <span id="status-dot" class="dot"></span>
-        <button id="lock-btn" class="ghost" title="Trancar o cofre" hidden>&#128274;</button>
+        <button id="lock-btn" class="ghost" title="Trancar" hidden>&#128274;</button>
       </div>
     </header>
 
+    <div id="source" class="banner hidden"></div>
+
     <section id="unlock-view" class="hidden">
-      <p class="hint">
-        O cofre está trancado. Digite a master password para a extensão ver os
-        logins (nada fica salvo aqui).
-      </p>
-      <form id="unlock-form">
-        <input id="unlock-path" type="text" placeholder="caminho do .tkeys" />
+      <p id="unlock-hint" class="hint"></p>
+      <form id="unlock-form" class="hidden">
+        <input id="unlock-path" type="text" placeholder="caminho do .tkeys" autocomplete="off" />
         <input
           id="unlock-password"
           type="password"
@@ -33,16 +34,49 @@
         />
         <button type="submit" class="primary">Destrancar</button>
       </form>
+      <form id="standalone-form" class="hidden">
+        <input
+          id="standalone-password"
+          type="password"
+          placeholder="master password"
+          autocomplete="current-password"
+          required
+        />
+        <button type="submit" class="primary">Entrar em modo autônomo</button>
+      </form>
+      <button id="activate-btn" class="btn wide hidden">Abrir o LocalKeys</button>
+      <button id="use-cache-btn" class="link hidden">usar cache local (modo autônomo)</button>
       <p id="unlock-error" class="error"></p>
     </section>
 
     <section id="main-view" class="hidden">
+      <div id="suggestion" class="hidden"></div>
       <input id="search" type="search" placeholder="Buscar..." autocomplete="off" />
       <ul id="list"></ul>
       <p id="empty" class="hint hidden">Nenhum login corresponde.</p>
     </section>
 
+    <section id="settings-panel" class="hidden">
+      <p class="hint">
+        Modo autônomo: a extensão guarda os logins <strong>cifrados</strong> e
+        funciona mesmo com o app fechado. A chave fica só na sessão do navegador.
+      </p>
+      <p id="cache-status" class="hint"></p>
+      <div id="standalone-setup" class="hidden">
+        <input
+          id="panel-master"
+          type="password"
+          placeholder="master password"
+          autocomplete="current-password"
+        />
+        <button id="enable-standalone-btn" class="btn wide">Ativar modo autônomo</button>
+      </div>
+      <button id="sync-now-btn" class="btn wide hidden">Sincronizar agora</button>
+      <button id="forget-cache-btn" class="btn wide danger">Esquecer cache local</button>
+    </section>
+
     <footer id="footer" class="hint"></footer>
+    <script src="../totp.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>

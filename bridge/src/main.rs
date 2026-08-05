@@ -42,13 +42,6 @@ struct BridgeConfig {
     token: String,
     /// Caminho do executável do LocalKeys para abrir se não estiver rodando.
     gui_exe: Option<String>,
-    /// Quanto tempo (ms) espera o app responder antes de desistir.
-    #[serde(default = "default_timeout_ms")]
-    timeout_ms: u64,
-}
-
-fn default_timeout_ms() -> u64 {
-    30_000
 }
 
 /// Diretório de config do app (tem que bater com `tauri::Manager::path` do GUI):
@@ -156,74 +149,56 @@ fn spawn_gui(gui_exe: &str) {
         .spawn();
 }
 
-/// Conecta ao socket do app, abrindo o app se necessário (com retry).
+/// Conecta ao socket do app. **Não abre o app** — abrir é responsabilidade do
+/// `activate` (pedido explícito da extensão). Como é só sonda, espera pouco e
+/// falha rápido ("offline") quando o app está fechado.
 fn connect(cfg: &BridgeConfig) -> Result<UnixStream, String> {
     let target = socket_path(cfg);
-    // O piso é o default novo (30 s): o `bridge.json` pode ter sido gravado por
-    // uma versão antiga do app com timeout menor, e cold start do WebView2
-    // (1ª inicialização) pode passar de 15 s.
-    let timeout = Duration::from_millis(cfg.timeout_ms.max(default_timeout_ms()));
+    let timeout = Duration::from_millis(2500);
     let started = std::time::Instant::now();
-    let mut spawned = false;
-
-    // 1ª tentativa imediata + umas tentativas rápidas antes de abrir o app
-    // (o app pode estar inicializando). Depois de ~1,2 s sem socket, abre o app.
-    let mut attempts: u32 = 0;
     loop {
         match UnixStream::connect(target) {
             Ok(s) => return Ok(s),
             Err(_) => {
-                if !spawned && attempts >= 5 {
-                    spawned = true;
-                    if let Some(exe) = &cfg.gui_exe {
-                        spawn_gui(exe);
-                    }
-                }
                 if started.elapsed() > timeout {
-                    return Err("LocalKeys não respondeu — está rodando?".into());
+                    return Err("LocalKeys offline — abra o app".into());
                 }
-                attempts += 1;
                 std::thread::sleep(Duration::from_millis(200));
             }
         }
     }
 }
 
-fn main() {
-    let cfg = match load_config() {
-        Ok(c) => c,
-        Err(e) => {
-            eprintln!("localkeys-bridge: {e}");
-            process::exit(1);
-        }
-    };
+/// O op da 1ª frame (ou vazio se não der pra ler).
+fn first_op(frame: &[u8]) -> String {
+    serde_json::from_slice::<serde_json::Value>(frame)
+        .ok()
+        .and_then(|v| v.get("op").and_then(|o| o.as_str()).map(str::to_owned))
+        .unwrap_or_default()
+}
 
-    let mut stream = match connect(&cfg) {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("localkeys-bridge: {e}");
-            process::exit(1);
-        }
-    };
+/// Resposta de erro ecoando o `id` da frame que falhou (o navegador casa por id).
+fn error_frame(first: &[u8], msg: &str) -> Vec<u8> {
+    let id = serde_json::from_slice::<serde_json::Value>(first)
+        .ok()
+        .and_then(|v| v.get("id").cloned())
+        .unwrap_or(serde_json::Value::Null);
+    let mut resp = serde_json::json!({ "ok": false, "error": msg });
+    resp["id"] = id;
+    resp.to_string().into_bytes()
+}
 
-    // autentica ANTES de qualquer relay (frames do navegador ficam no buffer
-    // do stdin até o handshake terminar).
-    if let Err(e) = write_frame(&mut stream, &auth_frame(&cfg.token)) {
-        eprintln!("localkeys-bridge: falha no handshake: {e}");
-        process::exit(1);
-    }
-
-    // ── relay bidirecional em 2 threads ─────────────────────────────────────
-    // 1) stdin do navegador → socket (para o app). EOF no stdin (extensão
-    //    desconectou) fecha o lado de escrita do socket.
-    // 2) socket → stdout (para o navegador). EOF no socket (app caiu/fechou o
-    //    app) encerra o processo — e o navegador vê a desconexão.
-
+/// Relay bidirecional em 2 threads, repassando as frames restantes do stdin:
+/// 1) stdin do navegador → socket (para o app). EOF no stdin (extensão
+///    desconectou) fecha o lado de escrita do socket.
+/// 2) socket → stdout (para o navegador). EOF no socket (app caiu/fechou o
+///    app) encerra o processo — e o navegador vê a desconexão.
+fn relay(mut stream: UnixStream, stdin: io::Stdin) {
     let mut socket_tx = stream
         .try_clone()
         .expect("clonar o socket do app deve funcionar");
     let reader = std::thread::spawn(move || {
-        let mut stdin = io::stdin().lock();
+        let mut stdin = stdin.lock();
         loop {
             match read_frame(&mut stdin) {
                 Ok(Some(frame)) => {
@@ -255,4 +230,63 @@ fn main() {
     }
 
     let _ = reader.join();
+}
+
+fn main() {
+    let cfg = match load_config() {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("localkeys-bridge: {e}");
+            process::exit(1);
+        }
+    };
+
+    // O navegador envia a 1ª frame assim que abre a porta; o op decide se o
+    // app deve ser aberto ("activate") ou apenas sondado (status/vault/...).
+    let first = {
+        let mut stdin = io::stdin().lock();
+        match read_frame(&mut stdin) {
+            Ok(Some(f)) => f,
+            Ok(None) | Err(_) => process::exit(0),
+        }
+    };
+    let op = first_op(&first);
+
+    // "activate" = pedido explícito da extensão para abrir o app: dispara o GUI
+    // e responde na hora, sem esperar o socket (o app abre no próprio ritmo e
+    // sondas futuras o pegam de pé).
+    if op == "activate" {
+        let running = UnixStream::connect(socket_path(&cfg)).is_ok();
+        if !running {
+            if let Some(exe) = &cfg.gui_exe {
+                spawn_gui(exe);
+            }
+        }
+        let resp = format!(r#"{{"ok":true,"spawned":{}}}"#, !running);
+        let _ = write_frame(&mut io::stdout().lock(), resp.as_bytes());
+        process::exit(0);
+    }
+
+    let mut stream = match connect(&cfg) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("localkeys-bridge: {e}");
+            let resp = error_frame(&first, &e);
+            let _ = write_frame(&mut io::stdout().lock(), &resp);
+            process::exit(1);
+        }
+    };
+
+    // autentica ANTES de qualquer relay (a 1ª frame fica com a gente até o
+    // handshake terminar; as demais seguem no buffer do stdin).
+    if let Err(e) = write_frame(&mut stream, &auth_frame(&cfg.token)) {
+        eprintln!("localkeys-bridge: falha no handshake: {e}");
+        process::exit(1);
+    }
+
+    // repassa a 1ª frame (já lida) e segue com o relay do resto.
+    if write_frame(&mut stream, &first).is_err() {
+        process::exit(1);
+    }
+    relay(stream, io::stdin());
 }
