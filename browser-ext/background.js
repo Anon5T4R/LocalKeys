@@ -16,7 +16,7 @@
 const api = globalThis.browser ?? globalThis.chrome;
 
 const HOST_NAME = "com.localkeys.bridge";
-const SEND_TIMEOUT_MS = 15000;
+const SEND_TIMEOUT_MS = 30000;
 
 let port = null;
 let nextId = 1;

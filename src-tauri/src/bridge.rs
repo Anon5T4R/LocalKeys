@@ -49,7 +49,7 @@ pub struct BridgeConfig {
 }
 
 fn default_timeout_ms() -> u64 {
-    15_000
+    30_000
 }
 
 /// Diretório de config do app (tem que bater com o que o `localkeys-bridge`

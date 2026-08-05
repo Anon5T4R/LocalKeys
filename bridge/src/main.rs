@@ -48,7 +48,7 @@ struct BridgeConfig {
 }
 
 fn default_timeout_ms() -> u64 {
-    15_000
+    30_000
 }
 
 /// Diretório de config do app (tem que bater com `tauri::Manager::path` do GUI):
@@ -120,14 +120,31 @@ fn spawn_gui(gui_exe: &str) {
     // sobreviver, então é criado fora do job (CREATE_BREAKAWAY_FROM_JOB) e num
     // grupo de processo próprio. stdin/stdout anulados para o GUI não tocar no
     // pipe nativo do navegador (que é este processo).
+    //
+    // Alguns navegadores NÃO permitem breakaway (CreateProcess falha com
+    // ACCESS_DENIED) — nesse caso sobe no job mesmo: o app abre e funciona,
+    // embora possa ser derrubado junto quando o navegador matar o host.
     const CREATE_BREAKAWAY_FROM_JOB: u32 = 0x0100_0000;
     const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
     let mut cmd = std::process::Command::new(gui_exe);
-    cmd.creation_flags(CREATE_BREAKAWAY_FROM_JOB | CREATE_NEW_PROCESS_GROUP)
-        .stdin(std::process::Stdio::null())
+    cmd.stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null());
-    let _ = cmd.spawn();
+    match cmd
+        .creation_flags(CREATE_BREAKAWAY_FROM_JOB | CREATE_NEW_PROCESS_GROUP)
+        .spawn()
+    {
+        Ok(_) => {}
+        Err(e) => {
+            eprintln!("localkeys-bridge: breakaway falhou ({e}); subindo o app dentro do job do navegador");
+            let mut cmd2 = std::process::Command::new(gui_exe);
+            cmd2.creation_flags(CREATE_NEW_PROCESS_GROUP)
+                .stdin(std::process::Stdio::null())
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null());
+            let _ = cmd2.spawn();
+        }
+    }
 }
 
 #[cfg(unix)]
@@ -142,6 +159,10 @@ fn spawn_gui(gui_exe: &str) {
 /// Conecta ao socket do app, abrindo o app se necessário (com retry).
 fn connect(cfg: &BridgeConfig) -> Result<UnixStream, String> {
     let target = socket_path(cfg);
+    // O piso é o default novo (30 s): o `bridge.json` pode ter sido gravado por
+    // uma versão antiga do app com timeout menor, e cold start do WebView2
+    // (1ª inicialização) pode passar de 15 s.
+    let timeout = Duration::from_millis(cfg.timeout_ms.max(default_timeout_ms()));
     let started = std::time::Instant::now();
     let mut spawned = false;
 
@@ -158,7 +179,7 @@ fn connect(cfg: &BridgeConfig) -> Result<UnixStream, String> {
                         spawn_gui(exe);
                     }
                 }
-                if started.elapsed() > Duration::from_millis(cfg.timeout_ms) {
+                if started.elapsed() > timeout {
                     return Err("LocalKeys não respondeu — está rodando?".into());
                 }
                 attempts += 1;
