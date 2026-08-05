@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>LocalKeys</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="bar">
+      <div class="brand">
+        <img src="../icons/icon32.png" alt="" />
+        <span>LocalKeys</span>
+      </div>
+      <div class="status">
+        <span id="status-dot" class="dot"></span>
+        <button id="lock-btn" class="ghost" title="Trancar o cofre" hidden>&#128274;</button>
+      </div>
+    </header>
+
+    <section id="unlock-view" class="hidden">
+      <p class="hint">
+        O cofre está trancado. Digite a master password para a extensão ver os
+        logins (nada fica salvo aqui).
+      </p>
+      <form id="unlock-form">
+        <input id="unlock-path" type="text" placeholder="caminho do .tkeys" />
+        <input
+          id="unlock-password"
+          type="password"
+          placeholder="master password"
+          autocomplete="current-password"
+          required
+        />
+        <button type="submit" class="primary">Destrancar</button>
+      </form>
+      <p id="unlock-error" class="error"></p>
+    </section>
+
+    <section id="main-view" class="hidden">
+      <input id="search" type="search" placeholder="Buscar..." autocomplete="off" />
+      <ul id="list"></ul>
+      <p id="empty" class="hint hidden">Nenhum login corresponde.</p>
+    </section>
+
+    <footer id="footer" class="hint"></footer>
+    <script src="popup.js"></script>
+  </body>
+</html>

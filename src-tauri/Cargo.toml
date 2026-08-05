@@ -1,6 +1,6 @@
 [package]
 name = "localkeys"
-version = "0.7.7"
+version = "0.7.8"
 description = "LocalKeys — gerenciador de senhas 100% local e offline"
 authors = ["Taylor"]
 edition = "2021"
@@ -60,6 +60,8 @@ tauri-plugin-single-instance = "2"
 # navegador não expõe esses formatos, por isso é nativo e só no Windows.
 [target.'cfg(windows)'.dependencies]
 clipboard-win = "5"
+# Named pipe da ponte com o navegador (mesma API do unix socket, no Windows).
+uds_windows = "1"
 
 [profile.release]
 opt-level = 3

@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "LocalKeys",
+  "version": "0.1.0",
+  "description": "Preenche usuário/senha e códigos TOTP direto do seu cofre LocalKeys — 100% local, offline.",
+  "permissions": ["nativeMessaging", "tabs", "activeTab", "clipboardWrite"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "LocalKeys",
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "32": "icons/icon32.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "32": "icons/icon32.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "localkeys@localkeys",
+      "strict_min_version": "115.0"
+    }
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAy5lk4CtAQwU1ZsS2KzprH+15VNv3vaKtTUmt70XExCFD8HijNz5NPcZFcrEDA5EYJWXGLrihrZGXeWfNV1w+TpgNfZSHFGccueYI88u/97saYX4LiLYpfj/Aph1DKHjgmqcss9mbZo5/yksvrg8eTydG6fUa2UiDpohDTQ0/jMEBcxoIW350uwQNMZ9FTDn72KcWF8EE5i1ZD4yK5Td8ApsREOQyiESv+5WFJS2vwClSlkFByKqxMNU8In3kZ0NdasHP5BQtS99qcRbEP2oaZZy6AEga6NGIomll51ks5YCUGUkB867ofIPeVZbLRXzx8hvOiEvMDoqF3Zxw/1toZwIDAQAB"
+}

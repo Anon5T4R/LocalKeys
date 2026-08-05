@@ -5,18 +5,20 @@
 //! da memória ao trancar. O front-end nunca guarda a senha nem a chave — recebe
 //! o conteúdo do vault (para renderizar) e manda de volta o JSON para salvar.
 
+mod bridge;
 mod bwdecrypt;
 #[cfg(windows)]
 mod clipboard;
 mod crypto;
 mod generator;
 mod kdbx;
+mod native_host;
 mod totp;
 
 const KEYRING_SERVICE: &str = "LocalKeys";
 
 use std::path::Path;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use base64::Engine;
 use serde::Serialize;
@@ -29,10 +31,15 @@ use generator::{PassphraseOptions, PasswordOptions, Strength};
 /// (tipos de item, pastas, lixeira) vive no front-end em TypeScript.
 const EMPTY_VAULT: &str = r#"{"version":1,"folders":[],"items":[]}"#;
 
-/// Estado do app: a sessão do vault destrancado (ou `None` = trancado).
-#[derive(Default)]
+/// Estado do app: a sessão do vault destrancado (ou `None` = trancado), o vault
+/// em claro (a mesma cópia que o front recebeu para renderizar) e o último
+/// vault aberto. Os campos são `Arc<Mutex<..>>` porque o servidor da ponte (uma
+/// thread separada) e os commands do Tauri compartilham o mesmo estado.
+#[derive(Clone)]
 struct AppState {
-    session: Mutex<Option<crypto::SessionKey>>,
+    session: Arc<Mutex<Option<crypto::SessionKey>>>,
+    vault: Arc<Mutex<Option<Zeroizing<Vec<u8>>>>>,
+    last_vault_path: Arc<Mutex<Option<String>>>,
 }
 
 #[derive(Serialize)]
@@ -46,17 +53,56 @@ struct OpenResult {
 /// renomeia por cima (o `fs::rename` substitui o destino de forma atômica tanto
 /// no Windows quanto no Unix). Mantém um `.bak` do estado anterior. Assim uma
 /// gravação interrompida não corrompe o vault.
-fn atomic_write(path: &str, bytes: &[u8]) -> Result<(), String> {
-    let p = Path::new(path);
-    if p.exists() {
-        let _ = std::fs::copy(p, format!("{path}.bak"));
+pub(crate) fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    if path.exists() {
+        let _ = std::fs::copy(path, format!("{}.bak", path.display()));
     }
-    let tmp = format!("{path}.tmp");
+    let tmp = format!("{}.tmp", path.display());
     std::fs::write(&tmp, bytes).map_err(|e| format!("falha ao gravar '{tmp}': {e}"))?;
-    std::fs::rename(&tmp, p).map_err(|e| {
+    std::fs::rename(&tmp, path).map_err(|e| {
         let _ = std::fs::remove_file(&tmp);
-        format!("falha ao substituir '{path}': {e}")
+        format!("falha ao substituir '{}': {e}", path.display())
     })
+}
+
+/// Adota uma sessão recém-aberta: guarda a chave E o vault em claro na memória
+/// (o mesmo JSON que o front recebeu para renderizar). Ao trancar, os dois
+/// somem — a ordem de lock é sempre `session` → `vault`, em todo lugar.
+fn adopt_session(state: &AppState, session: crypto::SessionKey, vault: String) {
+    *state.session.lock().unwrap() = Some(session);
+    *state.vault.lock().unwrap() = Some(Zeroizing::new(vault.into_bytes()));
+}
+
+fn create_vault_impl(state: &AppState, path: &str, password: &str) -> Result<String, String> {
+    let password = Zeroizing::new(password.to_string());
+    if password.is_empty() {
+        return Err("a master password não pode ser vazia".into());
+    }
+    let (file, session) =
+        crypto::create_vault(&password, EMPTY_VAULT.as_bytes()).map_err(|e| e.to_string())?;
+    atomic_write(Path::new(path), &file)?;
+    adopt_session(state, session, EMPTY_VAULT.to_string());
+    crate::bridge::remember_last_vault(state, path);
+    Ok(EMPTY_VAULT.to_string())
+}
+
+fn open_vault_impl(state: &AppState, path: &str, password: &str) -> Result<String, String> {
+    let password = Zeroizing::new(password.to_string());
+    let file = std::fs::read(path).map_err(|e| format!("falha ao ler '{path}': {e}"))?;
+    let (plaintext, session) = crypto::open_vault(&password, &file).map_err(|e| e.to_string())?;
+    // Backup do último estado bom ao abrir (retenção simples de 1 cópia).
+    let _ = std::fs::copy(path, format!("{path}.bak"));
+    let vault =
+        String::from_utf8(plaintext.to_vec()).map_err(|_| "vault não é UTF-8 válido".to_string())?;
+    adopt_session(state, session, vault.clone());
+    crate::bridge::remember_last_vault(state, path);
+    Ok(vault)
+}
+
+/// Tranca o vault: apaga a chave de sessão E o vault em claro da memória.
+fn lock_vault_impl(state: &AppState) {
+    *state.session.lock().unwrap() = None; // Drop → Zeroizing apaga a chave
+    *state.vault.lock().unwrap() = None; // Drop → Zeroizing apaga o vault em claro
 }
 
 /// Cria um vault novo no `path` com a `password` e já o deixa destrancado.
@@ -66,16 +112,8 @@ fn create_vault(
     password: String,
     state: State<'_, AppState>,
 ) -> Result<OpenResult, String> {
-    let password = Zeroizing::new(password);
-    if password.is_empty() {
-        return Err("a master password não pode ser vazia".into());
-    }
-    let (file, session) =
-        crypto::create_vault(&password, EMPTY_VAULT.as_bytes()).map_err(|e| e.to_string())?;
-    atomic_write(&path, &file)?;
-    *state.session.lock().unwrap() = Some(session);
     Ok(OpenResult {
-        vault: EMPTY_VAULT.to_string(),
+        vault: create_vault_impl(state.inner(), &path, &password)?,
     })
 }
 
@@ -86,15 +124,9 @@ fn open_vault(
     password: String,
     state: State<'_, AppState>,
 ) -> Result<OpenResult, String> {
-    let password = Zeroizing::new(password);
-    let file = std::fs::read(&path).map_err(|e| format!("falha ao ler '{path}': {e}"))?;
-    let (plaintext, session) = crypto::open_vault(&password, &file).map_err(|e| e.to_string())?;
-    // Backup do último estado bom ao abrir (retenção simples de 1 cópia).
-    let _ = std::fs::copy(&path, format!("{path}.bak"));
-    let vault =
-        String::from_utf8(plaintext.to_vec()).map_err(|_| "vault não é UTF-8 válido".to_string())?;
-    *state.session.lock().unwrap() = Some(session);
-    Ok(OpenResult { vault })
+    Ok(OpenResult {
+        vault: open_vault_impl(state.inner(), &path, &password)?,
+    })
 }
 
 /// Salva o vault: valida que é JSON, recifra com a chave da sessão (nonce novo)
@@ -111,16 +143,21 @@ fn save_vault(
     serde_json::from_str::<serde_json::Value>(&vault)
         .map_err(|e| format!("vault inválido (não é JSON): {e}"))?;
 
-    let guard = state.session.lock().unwrap();
-    let session = guard.as_ref().ok_or("vault está trancado")?;
-    let file = session.seal(vault.as_bytes()).map_err(|e| e.to_string())?;
-    atomic_write(&path, &file)
+    let file = {
+        let guard = state.session.lock().unwrap();
+        let session = guard.as_ref().ok_or("vault está trancado")?;
+        session.seal(vault.as_bytes()).map_err(|e| e.to_string())?
+    };
+    atomic_write(Path::new(&path), &file)?;
+    // Atualiza a cópia em claro para a ponte continuar servindo dados atuais.
+    *state.vault.lock().unwrap() = Some(Zeroizing::new(vault.as_bytes().to_vec()));
+    Ok(())
 }
 
 /// Tranca o vault: apaga a chave de sessão da memória.
 #[tauri::command(async)]
 fn lock_vault(state: State<'_, AppState>) -> Result<(), String> {
-    *state.session.lock().unwrap() = None; // Drop → Zeroizing apaga a chave
+    lock_vault_impl(state.inner());
     Ok(())
 }
 
@@ -145,7 +182,7 @@ fn change_master_password(
     let file = std::fs::read(&path).map_err(|e| format!("falha ao ler '{path}': {e}"))?;
     let renewed = crypto::change_password(&old_password, &new_password, &file)
         .map_err(|e| e.to_string())?;
-    atomic_write(&path, &renewed)?;
+    atomic_write(Path::new(&path), &renewed)?;
     // A chave guardada no keyring foi derivada do salt antigo — invalida.
     if let Ok(entry) = keyring::Entry::new(KEYRING_SERVICE, &path) {
         let _ = entry.delete_credential();
@@ -222,7 +259,8 @@ fn quick_unlock(path: String, state: State<'_, AppState>) -> Result<OpenResult, 
     let (plaintext, session) = crypto::open_with_key(&key, &file).map_err(|e| e.to_string())?;
     let vault =
         String::from_utf8(plaintext.to_vec()).map_err(|_| "vault não é UTF-8 válido".to_string())?;
-    *state.session.lock().unwrap() = Some(session);
+    adopt_session(state.inner(), session, vault.clone());
+    crate::bridge::remember_last_vault(state.inner(), &path);
     Ok(OpenResult { vault })
 }
 
@@ -323,6 +361,13 @@ fn get_startup_file() -> Option<String> {
         .find(|a| !a.starts_with('-') && Path::new(a).is_file())
 }
 
+/// Último vault aberto (para o front oferecer desbloqueio rápido e para a
+/// extensão destrancar sem precisar escolher o arquivo de novo).
+#[tauri::command(async)]
+fn get_last_vault_path(state: State<'_, AppState>) -> Option<String> {
+    crate::bridge::last_vault_path(state.inner())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // ── Contorno da tela branca do webkit: REMOVIDO, e o porquê importa ──────
@@ -361,7 +406,21 @@ pub fn run() {
     builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        .manage(AppState::default())
+        .manage(AppState {
+            session: Arc::new(Mutex::new(None)),
+            vault: Arc::new(Mutex::new(None)),
+            last_vault_path: Arc::new(Mutex::new(None)),
+        })
+        .setup(|app| {
+            // Sobe a ponte com o navegador (socket local + token + registro dos
+            // manifests nativos). Se falhar, o app abre normalmente — a extensão
+            // só fica sem resposta até o próximo launch.
+            let state = app.state::<AppState>().inner().clone();
+            if let Err(e) = crate::bridge::start(state) {
+                eprintln!("bridge: não deu para iniciar: {e}");
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             create_vault,
             open_vault,
@@ -386,6 +445,7 @@ pub fn run() {
             has_quick_unlock,
             quick_unlock,
             get_startup_file,
+            get_last_vault_path,
         ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o LocalKeys");

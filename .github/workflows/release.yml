@@ -73,6 +73,22 @@ jobs:
         working-directory: src-tauri
         run: cargo fetch --locked
 
+      # Ponte com o navegador: binário separado do app, compilado com o lock
+      # próprio (bridge/Cargo.lock é versionado). O tauri-action espera o
+      # externalBin com o nome do target-triple em src-tauri/binaries/.
+      - name: Construir o bridge (ponte com o navegador)
+        working-directory: bridge
+        run: cargo build --release --locked
+
+      - name: Instalar o bridge para o bundler
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p src-tauri/binaries
+          if [ "${{ runner.os }}" = "Windows" ]; then EXT=".exe"; else EXT=""; fi
+          cp "bridge/target/release/localkeys-bridge$EXT" \
+             "src-tauri/binaries/localkeys-bridge-${{ matrix.rust-target }}$EXT"
+
       # `tagName` vazio = o tauri-action compila e NÃO publica. O token segue
       # no ambiente porque a action o lê na inicialização, antes de decidir se
       # vai publicar — sem ele o passo pode morrer sem nem começar o build.

@@ -1,0 +1,29 @@
+[package]
+name = "localkeys-bridge"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+description = "Ponte nativa entre o navegador (native messaging) e o LocalKeys"
+repository = "https://github.com/Anon5T4R/LocalKeys"
+
+# Binário de ponte: é o processo que o navegador lança pelo manifest nativo.
+# Ele NUNCA toca em senha/chave — só repassa frames entre o stdin/stdout do
+# navegador e o socket do app principal, que detém a sessão.
+#
+# Fica fora do workspace do Tauri (Cargo.lock próprio) de propósito: não quer
+# perturbar o protocolo de release/locks do app (cargo metadata --format-version
+# 1 --manifest-path src-tauri/Cargo.toml) com um segundo crate.
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[target.'cfg(windows)'.dependencies]
+uds_windows = "1"
+
+[target.'cfg(unix)'.dependencies]
+
+[profile.release]
+opt-level = "z"
+lto = true
+panic = "abort"
