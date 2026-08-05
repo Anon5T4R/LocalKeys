@@ -63,19 +63,10 @@ jobs:
       - name: Install JS deps
         run: npm ci
 
-      # Testes antes de buildar: tag ruim = release falha visível, sem instalador
-      # quebrado publicado (o vault de alguém depende disto estar correto).
-      - name: Rust testes (cripto + gerador)
-        working-directory: src-tauri
-        run: cargo test --locked
-
-      - name: Cargo.lock em dia (--locked)
-        working-directory: src-tauri
-        run: cargo fetch --locked
-
       # Ponte com o navegador: binário separado do app, compilado com o lock
-      # próprio (bridge/Cargo.lock é versionado). O tauri-action espera o
-      # externalBin com o nome do target-triple em src-tauri/binaries/.
+      # próprio (bridge/Cargo.lock é versionado). Precisa existir ANTES do
+      # cargo test (o tauri-build valida o externalBin) e do tauri-action, que
+      # espera o externalBin com o nome do target-triple em src-tauri/binaries/.
       - name: Construir o bridge (ponte com o navegador)
         working-directory: bridge
         run: cargo build --release --locked
@@ -88,6 +79,16 @@ jobs:
           if [ "${{ runner.os }}" = "Windows" ]; then EXT=".exe"; else EXT=""; fi
           cp "bridge/target/release/localkeys-bridge$EXT" \
              "src-tauri/binaries/localkeys-bridge-${{ matrix.rust-target }}$EXT"
+
+      # Testes antes de buildar: tag ruim = release falha visível, sem instalador
+      # quebrado publicado (o vault de alguém depende disto estar correto).
+      - name: Rust testes (cripto + gerador)
+        working-directory: src-tauri
+        run: cargo test --locked
+
+      - name: Cargo.lock em dia (--locked)
+        working-directory: src-tauri
+        run: cargo fetch --locked
 
       # `tagName` vazio = o tauri-action compila e NÃO publica. O token segue
       # no ambiente porque a action o lê na inicialização, antes de decidir se
