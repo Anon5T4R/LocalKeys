@@ -19,6 +19,7 @@ const KEYRING_SERVICE: &str = "LocalKeys";
 
 use std::path::Path;
 use std::sync::{Arc, Mutex};
+use std::time::SystemTime;
 
 use base64::Engine;
 use serde::Serialize;
@@ -40,6 +41,41 @@ struct AppState {
     session: Arc<Mutex<Option<crypto::SessionKey>>>,
     vault: Arc<Mutex<Option<Zeroizing<Vec<u8>>>>>,
     last_vault_path: Arc<Mutex<Option<String>>>,
+    /// `(mtime, tamanho)` do `.tkeys` na última vez que esta sessão leu ou
+    /// gravou o arquivo. Usado para detectar se outro dispositivo (OneDrive/
+    /// Google Drive) sobrescreveu o arquivo entre o open e o save.
+    last_disk_meta: Arc<Mutex<Option<(SystemTime, u64)>>>,
+}
+
+/// Marca o erro de "arquivo mudou fora do app" com um prefixo estável para o
+/// front distinguir (`EXTERNAL_CHANGE`) e abrir o diálogo de conflito em vez de
+/// um erro genérico.
+const EXTERNAL_CHANGE_ERR: &str = "EXTERNAL_CHANGE";
+
+/// `true` se o arquivo no disco mudou desde o estado conhecido (outro
+/// dispositivo sobrescreveu via OneDrive/Google Drive). Com `force` pula a
+/// checagem (o usuário confirmou sobrescrever no diálogo de conflito).
+fn detect_external_change(
+    known: Option<&(SystemTime, u64)>,
+    current: Option<(SystemTime, u64)>,
+    force: bool,
+) -> bool {
+    if force {
+        return false;
+    }
+    // Só bloqueia quando conhecemos o disco (abrimos/gravamos nesta sessão) E
+    // conseguimos ler o estado atual — se o arquivo sumiu, deixa o erro de
+    // escrita aparecer; se nunca vimos o disco, não temos base pra comparar.
+    match (known, current) {
+        (Some(known), Some(current)) => current != *known,
+        _ => false,
+    }
+}
+
+/// Lê `(mtime, tamanho)` de um arquivo no disco (`None` se não dá pra ler).
+fn disk_meta(path: &str) -> Option<(SystemTime, u64)> {
+    let md = std::fs::metadata(path).ok()?;
+    Some((md.modified().ok()?, md.len()))
 }
 
 #[derive(Serialize)]
@@ -73,6 +109,12 @@ fn adopt_session(state: &AppState, session: crypto::SessionKey, vault: String) {
     *state.vault.lock().unwrap() = Some(Zeroizing::new(vault.into_bytes()));
 }
 
+/// Registra o `(mtime, tamanho)` atual do arquivo no disco como nosso "estado
+/// conhecido" — chamado após qualquer leitura/gravação bem-sucedida.
+fn remember_disk_meta(state: &AppState, path: &str) {
+    *state.last_disk_meta.lock().unwrap() = disk_meta(path);
+}
+
 fn create_vault_impl(state: &AppState, path: &str, password: &str) -> Result<String, String> {
     let password = Zeroizing::new(password.to_string());
     if password.is_empty() {
@@ -83,6 +125,7 @@ fn create_vault_impl(state: &AppState, path: &str, password: &str) -> Result<Str
     atomic_write(Path::new(path), &file)?;
     adopt_session(state, session, EMPTY_VAULT.to_string());
     crate::bridge::remember_last_vault(state, path);
+    remember_disk_meta(state, path);
     Ok(EMPTY_VAULT.to_string())
 }
 
@@ -90,12 +133,11 @@ fn open_vault_impl(state: &AppState, path: &str, password: &str) -> Result<Strin
     let password = Zeroizing::new(password.to_string());
     let file = std::fs::read(path).map_err(|e| format!("falha ao ler '{path}': {e}"))?;
     let (plaintext, session) = crypto::open_vault(&password, &file).map_err(|e| e.to_string())?;
-    // Backup do último estado bom ao abrir (retenção simples de 1 cópia).
-    let _ = std::fs::copy(path, format!("{path}.bak"));
     let vault =
         String::from_utf8(plaintext.to_vec()).map_err(|_| "vault não é UTF-8 válido".to_string())?;
     adopt_session(state, session, vault.clone());
     crate::bridge::remember_last_vault(state, path);
+    remember_disk_meta(state, path);
     Ok(vault)
 }
 
@@ -117,7 +159,7 @@ fn create_vault(
     })
 }
 
-/// Abre um vault existente. Faz uma cópia de backup antes de mexer.
+/// Abre um vault existente. (O `.bak` é gravado só no save, em [`save_vault`].)
 #[tauri::command(async)]
 fn open_vault(
     path: String,
@@ -131,10 +173,17 @@ fn open_vault(
 
 /// Salva o vault: valida que é JSON, recifra com a chave da sessão (nonce novo)
 /// e grava. Não pede a senha de novo. Preserva um `.bak` do estado anterior.
+///
+/// Antes de gravar confere se o arquivo no disco mudou desde o open/save
+/// anterior (outro dispositivo sincronizou uma versão nova) — se mudou e
+/// `force` for falso, retorna [`EXTERNAL_CHANGE_ERR`] para o front abrir o
+/// diálogo de conflito (recarregar/sobrescrever) em vez de sobrescrever em
+/// silêncio.
 #[tauri::command(async)]
 fn save_vault(
     path: String,
     vault: String,
+    force: Option<bool>,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     // O JSON do vault (todas as senhas em claro) é apagado da memória ao sair.
@@ -142,6 +191,14 @@ fn save_vault(
     // Rejeita lixo antes de cifrar (defesa contra estado corrompido no front).
     serde_json::from_str::<serde_json::Value>(&vault)
         .map_err(|e| format!("vault inválido (não é JSON): {e}"))?;
+
+    // Detecção de mudança externa: se o `(mtime, tamanho)` atual do disco
+    // difere do que registramos no open/save, outro dispositivo mexeu no
+    // arquivo. `force = true` (confirmado no diálogo) pula a checagem.
+    let known = state.last_disk_meta.lock().unwrap().as_ref().copied();
+    if detect_external_change(known.as_ref(), disk_meta(&path), force == Some(true)) {
+        return Err(format!("{EXTERNAL_CHANGE_ERR}: o arquivo foi modificado fora do app"));
+    }
 
     let file = {
         let guard = state.session.lock().unwrap();
@@ -151,6 +208,7 @@ fn save_vault(
     atomic_write(Path::new(&path), &file)?;
     // Atualiza a cópia em claro para a ponte continuar servindo dados atuais.
     *state.vault.lock().unwrap() = Some(Zeroizing::new(vault.as_bytes().to_vec()));
+    remember_disk_meta(state.inner(), &path);
     Ok(())
 }
 
@@ -261,6 +319,27 @@ fn quick_unlock(path: String, state: State<'_, AppState>) -> Result<OpenResult, 
         String::from_utf8(plaintext.to_vec()).map_err(|_| "vault não é UTF-8 válido".to_string())?;
     adopt_session(state.inner(), session, vault.clone());
     crate::bridge::remember_last_vault(state.inner(), &path);
+    remember_disk_meta(state.inner(), &path);
+    Ok(OpenResult { vault })
+}
+
+/// Recarrega o `.tkeys` do disco, adotando a versão externa e descartando as
+/// edições em memória (usuário confirmou no diálogo de conflito). Reusa a
+/// chave da sessão atual, sem pedir a senha de novo. Lança erro se a senha foi
+/// trocada externamente (a chave já não casa) ou o arquivo está corrompido.
+#[tauri::command(async)]
+fn reload_vault(path: String, state: State<'_, AppState>) -> Result<OpenResult, String> {
+    let file = std::fs::read(&path).map_err(|e| format!("falha ao ler '{path}': {e}"))?;
+    let (plaintext, session) = {
+        let guard = state.session.lock().unwrap();
+        let s = guard.as_ref().ok_or("vault está trancado")?;
+        let key = s.key_bytes();
+        crypto::open_with_key(&key, &file).map_err(|e| e.to_string())?
+    };
+    let vault =
+        String::from_utf8(plaintext.to_vec()).map_err(|_| "vault não é UTF-8 válido".to_string())?;
+    adopt_session(state.inner(), session, vault.clone());
+    remember_disk_meta(state.inner(), &path);
     Ok(OpenResult { vault })
 }
 
@@ -410,6 +489,7 @@ pub fn run() {
             session: Arc::new(Mutex::new(None)),
             vault: Arc::new(Mutex::new(None)),
             last_vault_path: Arc::new(Mutex::new(None)),
+            last_disk_meta: Arc::new(Mutex::new(None)),
         })
         .setup(|app| {
             // Sobe a ponte com o navegador (socket local + token + registro dos
@@ -425,6 +505,7 @@ pub fn run() {
             create_vault,
             open_vault,
             save_vault,
+            reload_vault,
             lock_vault,
             is_unlocked,
             change_master_password,
@@ -449,4 +530,40 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o LocalKeys");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{Duration, UNIX_EPOCH};
+
+    fn meta(secs: u64, len: u64) -> (SystemTime, u64) {
+        (UNIX_EPOCH + Duration::from_secs(secs), len)
+    }
+
+    #[test]
+    fn detecta_mudanca_externa() {
+        assert!(detect_external_change(Some(&meta(100, 42)), Some(meta(101, 42)), false));
+    }
+
+    #[test]
+    fn mesmo_arquivo_nao_detecta() {
+        let known = meta(100, 42);
+        assert!(!detect_external_change(Some(&known), Some(known), false));
+    }
+
+    #[test]
+    fn force_pula_a_checagem() {
+        assert!(!detect_external_change(Some(&meta(100, 42)), Some(meta(101, 42)), true));
+    }
+
+    #[test]
+    fn sem_referencia_nao_bloqueia() {
+        assert!(!detect_external_change(None, Some(meta(100, 42)), false));
+    }
+
+    #[test]
+    fn arquivo_sumiu_deixa_erro_de_escrita_aparecer() {
+        assert!(!detect_external_change(Some(&meta(100, 42)), None, false));
+    }
 }

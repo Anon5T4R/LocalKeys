@@ -23,6 +23,7 @@ interface AppState {
   error: string | null;
   toast: Toast | null;
   lastActivity: number;
+  externalChange: boolean;
 
   createVault: (password: string) => Promise<void>;
   openVault: (password: string, path?: string) => Promise<void>;
@@ -46,11 +47,24 @@ interface AppState {
   markActivity: () => void;
   showToast: (text: string) => void;
   clearError: () => void;
+  forceSave: () => Promise<void>;
+  reloadFromDisk: () => Promise<void>;
+  dismissExternalChange: () => void;
 }
+
+const EXTERNAL_CHANGE = "EXTERNAL_CHANGE";
 
 async function persist(path: string | null, vault: Vault | null) {
   if (!path || !vault) return;
-  await api.saveVault(path, JSON.stringify(vault));
+  try {
+    await api.saveVault(path, JSON.stringify(vault));
+  } catch (e) {
+    if (String(e).startsWith(EXTERNAL_CHANGE)) {
+      useStore.setState({ externalChange: true });
+      return;
+    }
+    throw e;
+  }
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -64,6 +78,7 @@ export const useStore = create<AppState>((set, get) => ({
   error: null,
   toast: null,
   lastActivity: Date.now(),
+  externalChange: false,
 
   createVault: async (password) => {
     set({ busy: true, error: null });
@@ -290,4 +305,31 @@ export const useStore = create<AppState>((set, get) => ({
   markActivity: () => set({ lastActivity: Date.now() }),
   showToast: (text) => set({ toast: { text, id: Date.now() } }),
   clearError: () => set({ error: null }),
+  forceSave: async () => {
+    const { path, vault } = get();
+    if (!path || !vault) return;
+    set({ externalChange: false, busy: true });
+    try {
+      await api.saveVault(path, JSON.stringify(vault), true);
+    } catch (e) {
+      set({ error: String(e) });
+    } finally {
+      set({ busy: false });
+    }
+  },
+  reloadFromDisk: async () => {
+    const { path } = get();
+    if (!path) return;
+    set({ externalChange: false, busy: true });
+    try {
+      const { vault } = await api.reloadVault(path);
+      set({ vault: JSON.parse(vault), lastActivity: Date.now() });
+      get().showToast(t("toast.reloaded"));
+    } catch (e) {
+      set({ error: String(e) });
+    } finally {
+      set({ busy: false });
+    }
+  },
+  dismissExternalChange: () => set({ externalChange: false }),
 }));

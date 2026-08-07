@@ -80,8 +80,10 @@ export const api = {
     invoke<{ vault: string }>("create_vault", { path, password }),
   openVault: (path: string, password: string) =>
     invoke<{ vault: string }>("open_vault", { path, password }),
-  saveVault: (path: string, vault: string) =>
-    invoke<void>("save_vault", { path, vault }),
+  saveVault: (path: string, vault: string, force?: boolean) =>
+    invoke<void>("save_vault", { path, vault, force }),
+  reloadVault: (path: string) =>
+    invoke<{ vault: string }>("reload_vault", { path }),
   lock: () => invoke<void>("lock_vault"),
   isUnlocked: () => invoke<boolean>("is_unlocked"),
   changeMaster: (path: string, oldPassword: string, newPassword: string) =>

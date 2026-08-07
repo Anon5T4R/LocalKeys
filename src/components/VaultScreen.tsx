@@ -40,6 +40,10 @@ export function VaultScreen() {
   const enableQuickUnlock = useStore((s) => s.enableQuickUnlock);
   const disableQuickUnlock = useStore((s) => s.disableQuickUnlock);
   const lock = useStore((s) => s.lock);
+  const externalChange = useStore((s) => s.externalChange);
+  const forceSave = useStore((s) => s.forceSave);
+  const reloadFromDisk = useStore((s) => s.reloadFromDisk);
+  const dismissExternalChange = useStore((s) => s.dismissExternalChange);
 
   const [quickOn, setQuickOn] = useState(false);
   useEffect(() => {
@@ -251,6 +255,21 @@ export function VaultScreen() {
 
       {showTools && <ImportExport onClose={() => setShowTools(false)} />}
       {showReport && <SecurityReport onClose={() => setShowReport(false)} />}
+
+      {externalChange && (
+        <div className="modal-backdrop" onClick={dismissExternalChange}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>{t("vault.externalTitle")}</h2>
+            <p className="muted">{t("vault.externalMsg")}</p>
+            <div className="editor-foot">
+              <button onClick={reloadFromDisk}>{t("vault.externalReload")}</button>
+              <button className="danger" onClick={forceSave}>
+                {t("vault.externalOverwrite")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

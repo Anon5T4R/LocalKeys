@@ -385,6 +385,7 @@ mod tests {
             session: Arc::new(Mutex::new(None)),
             vault: Arc::new(Mutex::new(None)),
             last_vault_path: Arc::new(Mutex::new(None)),
+            last_disk_meta: Arc::new(Mutex::new(None)),
         }
     }
 

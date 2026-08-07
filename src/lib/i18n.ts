@@ -63,6 +63,11 @@ const pt = {
   "vault.quickOn": "🔓 Rápido: on",
   "vault.quickOff": "🔒 Rápido: off",
   "vault.placeholder": "Selecione um item ou crie um novo.",
+  "vault.externalTitle": "Arquivo modificado fora do app",
+  "vault.externalMsg": "O cofre no disco mudou desde que foi aberto — provavelmente outro dispositivo sincronizou uma versão nova (OneDrive/Google Drive). Recarregar descarta suas alterações e adota a versão do disco; sobrescrever grava a sua versão por cima da outra.",
+  "vault.externalReload": "Recarregar",
+  "vault.externalOverwrite": "Sobrescrever",
+  "toast.reloaded": "Cofre recarregado do disco.",
 
   // Tipos de item
   "kind.login": "Login",
@@ -259,6 +264,11 @@ const en: Record<MessageKey, string> = {
   "vault.quickOn": "🔓 Quick: on",
   "vault.quickOff": "🔒 Quick: off",
   "vault.placeholder": "Select an item or create a new one.",
+  "vault.externalTitle": "File modified outside the app",
+  "vault.externalMsg": "The vault on disk changed since it was opened — another device probably synced a new version (OneDrive/Google Drive). Reload discards your changes and adopts the disk version; overwrite saves your version on top of the other.",
+  "vault.externalReload": "Reload",
+  "vault.externalOverwrite": "Overwrite",
+  "toast.reloaded": "Vault reloaded from disk.",
 
   "kind.login": "Login",
   "kind.note": "Secure note",
@@ -442,6 +452,11 @@ const es: Record<MessageKey, string> = {
   "vault.quickOn": "🔓 Rápido: sí",
   "vault.quickOff": "🔒 Rápido: no",
   "vault.placeholder": "Selecciona un elemento o crea uno nuevo.",
+  "vault.externalTitle": "Archivo modificado fuera de la app",
+  "vault.externalMsg": "La caja fuerte en disco cambió desde que se abrió — probablemente otro dispositivo sincronizó una versión nueva (OneDrive/Google Drive). Recargar descarta tus cambios y adopta la versión del disco; sobrescribir guarda tu versión encima de la otra.",
+  "vault.externalReload": "Recargar",
+  "vault.externalOverwrite": "Sobrescribir",
+  "toast.reloaded": "Caja fuerte recargada del disco.",
 
   "kind.login": "Acceso",
   "kind.note": "Nota segura",
